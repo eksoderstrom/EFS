@@ -8,11 +8,7 @@ class RequestHandler(SimpleXMLRPCRequestHandler):
 # Create server
 server = SimpleXMLRPCServer(("localhost", 8000),
                             requestHandler=RequestHandler)
-server.register_introspection_functions()
 
-# Register pow() function; this will use the value of
-# pow.__name__ as the name, which is just 'pow'.
-server.register_function(pow)
 
 # Register a function under a different name
 def adder_function(x,y):

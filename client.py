@@ -1,7 +1,7 @@
 import xmlrpc.client, random, struct, os, hashlib
 from Crypto.Cipher import AES
 
-
+#Client
 s = xmlrpc.client.ServerProxy('http://localhost:8000')
 key = '0123456789abcdef'    #Key should of course not be hard-coded, and should be stored on disk. placeholder for now
 

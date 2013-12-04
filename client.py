@@ -67,15 +67,14 @@ def generate_aes_key():
     key = generate_nonce(AES_KEY_SIZE)
     return key
 
-def generate_mac(key, message):
+def generate_mac(key, filename):
     mac = hmac.new(key, message, hashlib.sha256).hexdigest()
     return mac
 
-def export_rsa_key(filename, key, passphrase=None):
-    """ Save a copy of our rsa key.
-        The extension '.pub' is used
-        for public keys and '.pri'
-        is used for private keys.
+def export_rsa_key_pair(filename, key, passphrase=None):
+    """ Save a copy of our rsa key pair
+        Treat this as saving the private
+        key. Do not distribute this file.
     """
     try:
         f = open(filename, 'w')
@@ -84,7 +83,21 @@ def export_rsa_key(filename, key, passphrase=None):
     except IOError as e:
         print(e)
 
+def export_rsa_public_key(filename, key):
+    """ Saves a copy of the public key
+        only.
 
+        filename:
+        key: RSA key object
+    """
+    filename = filename + '.pub'
+    try:
+        f = open(filename, 'w')
+        f.write(key.publickey().exportKey())
+        f.close()
+    except IOError as e:
+        print(e)
+        
 def load_rsa_key(filename, passphrase=None):
     """ Retrieve our rsa key from file
 
@@ -98,6 +111,22 @@ def load_rsa_key(filename, passphrase=None):
         return key
     except IOError as e:
         print (e)
+
+def save_key_pair(filename, rsa_key):
+    """ Saves the user's public-private
+        key pair for later retrieval.
+
+        filename: name of file where
+        keys will be stored. Two files
+        will be made with extensions
+        '.pub' and '.pri' for public
+        and private keys, respectively.
+
+        rsa_key: RSA key object
+    """
+    export_rsa_key_pair(filename)
+    export_rsa_public_key(filename)
+    
 
 def send_public_key(key):
     key.publickey().exportKey()
@@ -152,7 +181,6 @@ def add_file_header(in_filename, key):
     start = 'FILEHEADER_START'
     end = 'FILEHEADER_END'
     nonce = generate_nonce(FILE_HEADER_NONCE_SIZE)
-    
 
 def has_file_header(in_filename):
     """ Checks if this file has a file header

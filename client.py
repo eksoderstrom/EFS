@@ -5,7 +5,7 @@ import Crypto.PublicKey.RSA as RSA
 import Crypto.Random.OSRNG.posix as Nonce
 #MAC import
 import hmac
-
+import ntpath
 """TODO
     how to associate private keys with files
     """
@@ -73,9 +73,7 @@ def generate_mac(key, filepath):
         filepath: name of file to hmac
     """
     mac = hmac.new(key, None, hashlib.sha256)
-
-    filesize = os.path.getsize(filepath) 
-
+    chunksize=64*1024
     with open(filepath, 'rb') as infile:
         while True:
             chunk = infile.read(chunksize)
@@ -90,7 +88,7 @@ def export_rsa_key_pair(filepath, key, passphrase=None):
         key. Do not distribute this file.
     """
     try:
-        f = open(filepath, 'w')
+        f = open(filepath, 'wb')
         f.write(key.exportKey())
         f.close()
     except IOError as e:
@@ -105,7 +103,7 @@ def export_rsa_public_key(filepath, key):
     """
     filepath = filepath + '.pub'
     try:
-        f = open(filepath, 'w')
+        f = open(filepath, 'wb')
         f.write(key.publickey().exportKey())
         f.close()
     except IOError as e:
@@ -183,24 +181,40 @@ def store_file_log(in_filepath, filesize, gen_count, mac):
         outfile.write(gen_count)
         outfile.write(mac)
 
+#Taken from http://stackoverflow.com/questions/8384737/python-extract-file-name-from-path-no-matter-what-the-os-path-format
 def get_filename_from_filepath(filepath):
+    """ Retrieve filename from the filepath
+        regardless of os.
     """
-    """
-    pass
+    head, tail = ntpath.split(filepath)
+    return tail or ntpath.basename(head)
+
 def add_file_header(in_filepath, key):
     """ Adds a file header to the front of the file of the format
         FILEHEADER_START
         FILEHEADER_END
-
+        
         key: aes private key
     """
-
+    out_filepath = in_filepath + 'file_header'
+    
     start = 'FILEHEADER_START'
     end = 'FILEHEADER_END'
     nonce = generate_nonce(FILE_HEADER_NONCE_SIZE)
-    generate_mac(in_filepath)
-    
+    mac = generate_mac(key, in_filepath)
+    filename = get_filename_from_filepath(in_filepath)
 
+    with open(out_filepath, 'wb') as outfile:
+        outfile.write(start)
+        outfile.write(nonce)
+        outfile.write(mac)
+        while True:
+            chunk = infile.read(chunksize)
+            if len(chunk) == 0:
+                break
+            outfile.write(chunk)
+        outfile.write(end)
+    
 def has_file_header(in_filepath):
     """ Checks if this file has a file header
         placed by our encrypted file system

@@ -67,16 +67,16 @@ def generate_aes_key():
     key = generate_nonce(AES_KEY_SIZE)
     return key
 
-def generate_mac(key, filename):
+def generate_mac(key, filepath):
     """ Generates a mac
         key: AES key
-        filename: name of file to hmac
+        filepath: name of file to hmac
     """
     mac = hmac.new(key, None, hashlib.sha256)
 
-    filesize = os.path.getsize(filename) 
+    filesize = os.path.getsize(filepath) 
 
-    with open(filename, 'rb') as infile:
+    with open(filepath, 'rb') as infile:
         while True:
             chunk = infile.read(chunksize)
             if len(chunk) == 0:
@@ -84,52 +84,52 @@ def generate_mac(key, filename):
             mac.update(chunk)
     return mac.hexdigest()
 
-def export_rsa_key_pair(filename, key, passphrase=None):
+def export_rsa_key_pair(filepath, key, passphrase=None):
     """ Save a copy of our rsa key pair
         Treat this as saving the private
         key. Do not distribute this file.
     """
     try:
-        f = open(filename, 'w')
+        f = open(filepath, 'w')
         f.write(key.exportKey())
         f.close()
     except IOError as e:
         print(e)
 
-def export_rsa_public_key(filename, key):
+def export_rsa_public_key(filepath, key):
     """ Saves a copy of the public key
         only.
 
-        filename:
+        filepath:
         key: RSA key object
     """
-    filename = filename + '.pub'
+    filepath = filepath + '.pub'
     try:
-        f = open(filename, 'w')
+        f = open(filepath, 'w')
         f.write(key.publickey().exportKey())
         f.close()
     except IOError as e:
         print(e)
         
-def load_rsa_key(filename, passphrase=None):
+def load_rsa_key(filepath, passphrase=None):
     """ Retrieve our rsa key from file
 
-        filename: name of file containing
+        filepath: name of file containing
         public-private key pair
     """
     try:
-        f = open(filename)
+        f = open(filepath)
         key = RSA.importKey(f.read())
         f.close()
         return key
     except IOError as e:
         print (e)
 
-def save_key_pair(filename, rsa_key):
+def save_key_pair(filepath, rsa_key):
     """ Saves the user's public-private
         key pair for later retrieval.
 
-        filename: name of file where
+        filepath: name of file where
         keys will be stored. Two files
         will be made with extensions
         '.pub' and '.pri' for public
@@ -137,8 +137,8 @@ def save_key_pair(filename, rsa_key):
 
         rsa_key: RSA key object
     """
-    export_rsa_key_pair(filename)
-    export_rsa_public_key(filename)
+    export_rsa_key_pair(filepath)
+    export_rsa_public_key(filepath)
     
 
 def send_public_key(key):
@@ -154,36 +154,40 @@ def mv(source, dst):
     pass
 
 def enc(fn):
-    new_in_filename = add_file_header(fn)
-    encrypt_file(new_in_filename)
+    new_in_filepath = add_file_header(fn)
+    encrypt_file(new_in_filepath)
 
 def dec(fn):
     decrypt_file(fn, "/Users/eks/Desktop/decrypted")
 
-def store_file_log(in_filename, filesize, gen_count, mac):
+def store_file_log(in_filepath, filesize, gen_count, mac):
     """ Stores information about file on the client-size.
 
         filesize:
             Size of the file.
 
-        in_filename:
+        in_filepath:
             Name of the input file
 
-        out_filename:
-            '<in_filename>.txt' will always be used.
+        out_filepath:
+            '<in_filepath>.txt' will always be used.
 
         gen_count:
             The version of this file. Starting value is 1.
     """
-    out_filename = in_filename + '.txt'
+    out_filepath = in_filepath + '.txt'
     nonce = os.urandom(32)
-    with open(out_filename, 'wb') as outfile:
-        outfile.write(in_filename)
+    with open(out_filepath, 'wb') as outfile:
+        outfile.write(in_filepath)
         outfile.write(filesize)
         outfile.write(gen_count)
         outfile.write(mac)
 
-def add_file_header(in_filename, key):
+def get_filename_from_filepath(filepath):
+    """
+    """
+    pass
+def add_file_header(in_filepath, key):
     """ Adds a file header to the front of the file of the format
         FILEHEADER_START
         FILEHEADER_END
@@ -194,15 +198,17 @@ def add_file_header(in_filename, key):
     start = 'FILEHEADER_START'
     end = 'FILEHEADER_END'
     nonce = generate_nonce(FILE_HEADER_NONCE_SIZE)
+    generate_mac(in_filepath)
+    
 
-def has_file_header(in_filename):
+def has_file_header(in_filepath):
     """ Checks if this file has a file header
         placed by our encrypted file system
     """
     
     
 #Taken from http://eli.thegreenplace.net/2010/06/25/aes-encryption-of-files-in-python-with-pycrypto/
-def encrypt_file(in_filename, out_filename=None, chunksize=64*1024):
+def encrypt_file(in_filepath, out_filepath=None, chunksize=64*1024):
     """ Encrypts a file using AES (CBC mode) with the
         given key.
 
@@ -211,11 +217,11 @@ def encrypt_file(in_filename, out_filename=None, chunksize=64*1024):
             either 16, 24 or 32 bytes long. Longer keys
             are more secure.
 
-        in_filename:
+        in_filepath:
             Name of the input file
 
-        out_filename:
-            If None, '<in_filename>.enc' will be used.
+        out_filepath:
+            If None, '<in_filepath>.enc' will be used.
 
         chunksize:
             Sets the size of the chunk which the function
@@ -225,15 +231,15 @@ def encrypt_file(in_filename, out_filename=None, chunksize=64*1024):
     """
         
 
-    if not out_filename:
-        out_filename = in_filename + '.encrypted'
+    if not out_filepath:
+        out_filepath = in_filepath + '.encrypted'
 
     iv = bytes([ random.randint(0, 0xFF) for i in range(16)])
     encryptor = AES.new(key, AES.MODE_CBC, iv)
-    filesize = os.path.getsize(in_filename) 
+    filesize = os.path.getsize(in_filepath) 
 
-    with open(in_filename, 'rb') as infile:
-        with open(out_filename, 'wb') as outfile:
+    with open(in_filepath, 'rb') as infile:
+        with open(out_filepath, 'wb') as outfile:
             outfile.write(struct.pack('<Q', filesize))
             outfile.write(iv)
 
@@ -247,24 +253,24 @@ def encrypt_file(in_filename, out_filename=None, chunksize=64*1024):
                 outfile.write(encryptor.encrypt(chunk))
 
 #Taken from http://eli.thegreenplace.net/2010/06/25/aes-encryption-of-files-in-python-with-pycrypto/
-def decrypt_file(in_filename, out_filename=None, chunksize=64*1024):
+def decrypt_file(in_filepath, out_filepath=None, chunksize=64*1024):
     """ Decrypts a file using AES (CBC mode) with the
         given key. Parameters are similar to encrypt_file,
-        with one difference: out_filename, if not supplied
-        will be in_filename without its last extension
-        (i.e. if in_filename is 'aaa.zip.enc' then
-        out_filename will be 'aaa.zip')
+        with one difference: out_filepath, if not supplied
+        will be in_filepath without its last extension
+        (i.e. if in_filepath is 'aaa.zip.enc' then
+        out_filepath will be 'aaa.zip')
     """
 
-    if not out_filename:
-        out_filename = os.path.splitext(in_filename)[0]
+    if not out_filepath:
+        out_filepath = os.path.splitext(in_filepath)[0]
 
-    with open(in_filename, 'rb') as infile:
+    with open(in_filepath, 'rb') as infile:
         origsize = struct.unpack('<Q', infile.read(struct.calcsize('Q')))[0]
         iv = infile.read(16)
         decryptor = AES.new(key, AES.MODE_CBC, iv)
 
-        with open(out_filename, 'wb') as outfile:
+        with open(out_filepath, 'wb') as outfile:
             while True:
                 chunk = infile.read(chunksize)
                 if len(chunk) == 0:

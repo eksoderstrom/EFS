@@ -68,8 +68,21 @@ def generate_aes_key():
     return key
 
 def generate_mac(key, filename):
-    mac = hmac.new(key, message, hashlib.sha256).hexdigest()
-    return mac
+    """ Generates a mac
+        key: AES key
+        filename: name of file to hmac
+    """
+    mac = hmac.new(key, None, hashlib.sha256)
+
+    filesize = os.path.getsize(filename) 
+
+    with open(filename, 'rb') as infile:
+        while True:
+            chunk = infile.read(chunksize)
+            if len(chunk) == 0:
+                break
+            mac.update(chunk)
+    return mac.hexdigest()
 
 def export_rsa_key_pair(filename, key, passphrase=None):
     """ Save a copy of our rsa key pair

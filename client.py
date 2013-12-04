@@ -1,11 +1,11 @@
-import xmlrpc.client, random, struct, os, hashlib, sys
+import xmlrpc.client, random, struct, os, hashlib, sys, base64
 from Crypto.Cipher import AES
 #RSA imports
 import Crypto.PublicKey.RSA as RSA
 import Crypto.Random.OSRNG.posix as Nonce
 #MAC import
 import hmac
-from os import urandom
+
 """TODO
     how to associate private keys with files
     """
@@ -44,22 +44,32 @@ def generate_rsa_key(size):
     key = RSA.generate(size, nonce)
     return key
 
-def encrypt_aes_key(key):
+def encrypt_aes_key(public_rsa_key, aes_key):
     """ Encrypts AES key with another
         user's public key
 
-        key: public key of person
+        public_rsa_key: public key of person
     """
-    pass
+    ciphertext = public_rsa_key.encrypt(aes_key, None) #returns (ciphertext, None)
+    ciphertext = ciphertext[0]
+    return ciphertext
 
-def decrypt_aes_key(public_rsa_key, encrypted_aes_key):
-    """ Decrypts AES key with user's public
-        key"""
-    pass
+def decrypt_aes_key(private_rsa_key, encrypted_aes_key):
+    """ Decrypts AES key with user's private
+        key
 
+        private_rsa_key: user's private rsa key
+        encrypted_aes_key: 
+    """
+    decrypted_aes_key = private_rsa_key.decrypt(message)
+    return decrypted_aes_key
 def generate_aes_key():
     key = generate_nonce(AES_KEY_SIZE)
     return key
+
+def generate_mac(key, message):
+    mac = hmac.new(key, message, hashlib.sha256).hexdigest()
+    return mac
 
 def export_rsa_key(filename, key, passphrase=None):
     """ Save a copy of our rsa key.
@@ -142,7 +152,7 @@ def add_file_header(in_filename, key):
     start = 'FILEHEADER_START'
     end = 'FILEHEADER_END'
     nonce = generate_nonce(FILE_HEADER_NONCE_SIZE)
-    mac = hmac.new(key, message, hashlib.sha256).hexdigest()
+    
 
 def has_file_header(in_filename):
     """ Checks if this file has a file header

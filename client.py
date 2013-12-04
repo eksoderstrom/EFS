@@ -6,6 +6,8 @@ import Crypto.Random.OSRNG.posix as Nonce
 #MAC import
 import hmac
 import ntpath
+
+import pickle
 """TODO
     how to associate private keys with files
     """
@@ -22,7 +24,35 @@ WARNING = 'DO NOT DELETE THIS FILE. USED IN ENCRYPTED FILE SYSTEM.'
 class Client():
     def __init__(self, username, password):
         pass
+    
+##########################################################################
+# File Header 
+# This class is used to keep track of certain parameters and is inserted
+# at the front of the file we want to encrypt.
+##########################################################################
+class FileHeader():
+    def __init__(self, nonce, mac, filename):
+        """ The parameters stored in the file header
+            are used for security and identification
+            purposes.
 
+            nonce: random number in bytes
+            mac: used to verify the file
+            filename:
+        """
+        self.nonce = nonce
+        self.mac = mac
+        self.filename = filename
+
+    def get_nonce(self):
+        return self.nonce
+
+    def get_mac(self):
+        return self.mac
+
+    def get_filename(self):
+        return self.filename
+    
 #########################################################
 # 
 #
@@ -190,30 +220,75 @@ def get_filename_from_filepath(filepath):
     return tail or ntpath.basename(head)
 
 def add_file_header(in_filepath, key):
-    """ Adds a file header to the front of the file of the format
-        FILEHEADER_START
-        FILEHEADER_END
+    """ Adds a file header obj to the front of the file
+        using Python's cpickle. 
         
-        key: aes private key
+        key: AES private key
     """
-    out_filepath = in_filepath + 'file_header'
-    
-    start = 'FILEHEADER_START'
-    end = 'FILEHEADER_END'
+    out_filepath = in_filepath + '.fh'
+    chunksize=64*1024
     nonce = generate_nonce(FILE_HEADER_NONCE_SIZE)
     mac = generate_mac(key, in_filepath)
     filename = get_filename_from_filepath(in_filepath)
+    file_header = FileHeader(nonce, mac, filename)
 
-    with open(out_filepath, 'wb') as outfile:
-        outfile.write(start)
-        outfile.write(nonce)
-        outfile.write(mac)
-        while True:
-            chunk = infile.read(chunksize)
-            if len(chunk) == 0:
-                break
-            outfile.write(chunk)
-        outfile.write(end)
+    with open(in_filepath, 'rb') as infile:
+        with open(out_filepath, 'wb') as outfile:
+
+            pickle.dump(file_header, outfile, -1)
+            while True:
+                chunk = infile.read(chunksize)
+                if len(chunk) == 0:
+                    break
+                outfile.write(chunk)
+    outfile.close()
+
+def read_file_header(in_filepath):
+    """ Retrieves the file header object that is
+        at the front of a file.
+        Files read into this must have the
+        extension '.fh'. Otherwise it will
+        raise an error.
+    """
+    assert len(in_filepath) > 3
+    assert in_filepath[-3:] == '.fh'
+        
+    with open(in_filepath, 'rb') as input:
+        file_header = pickle.load(input)
+    return file_header
+
+def remove_file_header(in_filepath):
+    """ Given a file with a file header,
+        remove the file header and return
+        the original file.
+
+        Basically, skips the FileHeader and
+        just writes the contents of the
+        original file.
+
+        The file that is returned is the
+        in_filepath name but with the extension
+        '.fh' removed.
+
+        CAREFUL. IT MAY OVERWRITE A FILE.
+    """
+    assert len(in_filepath) > 3
+    assert in_filepath[-3:] == '.fh'
+
+    out_filepath = in_filepath[0:-3]
+    file_header = read_file_header(in_filepath)
+    size_file_header = len(pickle.dumps(file_header))
+    chunksize=64*1024
+    with open(in_filepath, 'rb') as infile:
+        with open(out_filepath, 'wb') as outfile:
+
+            infile.read(size_file_header)
+            while True:
+                chunk = infile.read(chunksize)
+                if len(chunk) == 0:
+                    break
+                outfile.write(chunk)
+ 
     
 def has_file_header(in_filepath):
     """ Checks if this file has a file header

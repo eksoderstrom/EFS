@@ -54,7 +54,7 @@ class FileHeader():
         return self.filename
     
 #########################################################
-# 
+# Key Generation Methods
 #
 #########################################################
 def generate_nonce(size):
@@ -187,6 +187,20 @@ def enc(fn):
 
 def dec(fn):
     decrypt_file(fn, "/Users/eks/Desktop/decrypted")
+
+####################################################
+# A set of methods used to verify that a file has
+# not been modified by somebody malicious
+#####################################################
+
+def verifiy_mac(file_header, key):
+    pass
+
+def verify_generation_count(file_header):
+    pass
+
+def verify_nonce_value(file_header):
+    pass
 
 def store_file_log(in_filepath, filesize, gen_count, mac):
     """ Stores information about file on the client-size.

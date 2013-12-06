@@ -49,7 +49,9 @@ class ClientGUI(Frame):
         self.uploadfiletextfield.grid(row=3,column=1)
         uploadfilebutton = Button(self.parent, text="Open...", command=self.fileUpload)
         uploadfilebutton.grid(row=3,column=2)
-
+        sendfilebutton = Button(self.parent, text="Submit", command=self.fileUpload)
+        sendfilebutton.grid(row=3,column=3, sticky=W+E+N+S, padx=5,pady=5,columnspan=2)
+        
         self.uploaddircontent = StringVar()
         uploaddirlabel = Label(self.parent, text="Upload Directory:")
         uploaddirlabel.grid(row=4)
@@ -98,6 +100,6 @@ class ClientGUI(Frame):
         
 if __name__ == "__main__":
     root = Tk()
-    root.geometry("300x300")
+    root.geometry("380x300")
     client = ClientGUI(root)
     client.mainloop()

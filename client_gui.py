@@ -1,20 +1,35 @@
 #Note: tkinter import statement works for Python 3 ONLY
-import tkinter
+from tkinter import *
 
 ################################################################
 # WARNING: ONLY USE THIS IF YOU ARE RUNNING PYTHON 3 or Higher
 #
 #################################################################
-class ClientGUI(tkinter.Tk):
-    def __init__(self,parent):
-        tkinter.Tk.__init__(self,parent)
+class ClientGUI(Frame):
+    def __init__(self, parent=None):
+        Frame.__init__(self, parent)
         self.parent = parent
         self.initialize()
 
     def initialize(self):
-        self.grid()
+        self.parent.title('Client')
+        menubar = Menu(self.parent)
+        self.parent.config(menu=menubar)
+        
+        fileMenu = Menu(menubar)
+        fileMenu.add_command(label="Exit", command=self.onExit)
+        menubar.add_cascade(label="File", menu=fileMenu)
+        exportMenu = Menu(menubar)
+        menubar.add_cascade(label="Export Key", menu=exportMenu)
+        importMenu = Menu(menubar)
+        menubar.add_cascade(label="Import Key", menu=importMenu)
+
+    def onExit(self):
+        self.quit()
+
         
 if __name__ == "__main__":
-    client = ClientGUI(None)
-    client.title('Client')
+    root = Tk()
+    client = ClientGUI(root)
+    
     client.mainloop()

@@ -238,7 +238,7 @@ def verify_generation_count(file_header):
 def verify_nonce_value(file_header):
     pass
 
-def retrieve_file_from_log(log_filepath):
+def retrive_file_from_client_log(log_filepath):
     """ The user retrieves a file from the server.
         The user specifies the client log file.
 
@@ -249,7 +249,14 @@ def retrieve_file_from_log(log_filepath):
     assert len(log_filepath) > 5
     assert log_filepath[-5:] == '.clog'
 
+    with open(log_filepath, 'rb') as input:
+        log = pickle.load(input)
+
+    #RPC Call to Server
     
+    
+    filename = log.get_filename()
+    print('Successfully retrived' + filename)
 
 def store_file_log(in_filepath,filesize, gen_count, mac, nonce, key, out_filepath=None):
     """ Stores information about file on the client-size.
@@ -272,15 +279,12 @@ def store_file_log(in_filepath,filesize, gen_count, mac, nonce, key, out_filepat
         key: used to encrypt file
     """
     if not out_filepath:
-        out_filepath = in_filepath + '.log'
-        
-    with open(out_filepath, 'wb') as outfile:
-        outfile.write(in_filepath)
-        outfile.write(filesize)
-        outfile.write(gen_count)
-        outfile.write(mac)
-        outfile.write(nonce)
+        out_filepath = in_filepath + '.clog'
 
+    log = ClientLog(out_filepath, nonce, key, gen_count)
+    with open(out_filepath, 'wb') as outfile:
+        pickle.dump(log, outfile, -1)
+        
 #Taken from http://stackoverflow.com/questions/8384737/python-extract-file-name-from-path-no-matter-what-the-os-path-format
 def get_filename_from_filepath(filepath):
     """ Retrieve filename from the filepath

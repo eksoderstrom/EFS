@@ -19,7 +19,7 @@ class ClientGUI(Frame):
         fileMenu = Menu(menubar)
         fileMenu.add_command(label="Exit", command=self.onExit)
         menubar.add_cascade(label="File", menu=fileMenu)
-        exportMenu = Menu(menubar)
+        aesMenu = Menu(menubar)
         menubar.add_cascade(label="AES Keys", menu=aesMenu)
         rsaMenu = Menu(menubar)
         menubar.add_cascade(label="RSA Key", menu=rsaMenu)

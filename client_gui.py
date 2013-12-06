@@ -78,6 +78,6 @@ class ClientGUI(Frame):
         
 if __name__ == "__main__":
     root = Tk()
-    root.geometry("500x500")
+    root.geometry("300x300")
     client = ClientGUI(root)
     client.mainloop()

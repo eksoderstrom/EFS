@@ -52,6 +52,42 @@ class FileHeader():
 
     def get_filename(self):
         return self.filename
+
+##########################################################################
+# Client Log
+# This class is used to store data abaout individual files on the client.
+# The main reason why client log objects are used as opposed to simply
+# writing the parameters of a file to the .clog file is because it is easier
+# to extract information, especially if we choose to store more than one file
+# in an client log file (ie: store a directory of files in a single client
+# file)
+##########################################################################
+class ClientLog():
+    def __init__(self, filename, nonce, key, gen_count):
+        """ The parameters used here are for
+            retrieval and identification
+            purposes.
+
+            nonce: random number in bytes
+            mac: used to verify the file
+            filename:
+        """
+        self.nonce = nonce
+        self.key = key
+        self.filename = filename
+        self.gen_count = gen_count
+
+    def get_nonce(self):
+        return self.nonce
+
+    def get_key(self):
+        return self.key
+
+    def get_gen_count(self):
+        return self.gen_count
+
+    def get_filename(self):
+        return self.filename
     
 #########################################################
 # Key Generation Methods
@@ -210,8 +246,10 @@ def retrieve_file_from_log(log_filepath):
         with the file that the user wants to retrive from
         the server
     """
-    pass
-    #assert log_filepath
+    assert len(log_filepath) > 5
+    assert log_filepath[-5:] == '.clog'
+
+    
 
 def store_file_log(in_filepath,filesize, gen_count, mac, nonce, key, out_filepath=None):
     """ Stores information about file on the client-size.

@@ -23,40 +23,57 @@ class ClientGUI(Frame):
         menubar.add_cascade(label="Export Key", menu=exportMenu)
         importMenu = Menu(menubar)
         menubar.add_cascade(label="Import Key", menu=importMenu)
+        helpMenu = Menu(menubar)
+        menubar.add_cascade(label="Help", menu=helpMenu)
 
-        #Buttons and textfields
+        #Keys
+        rsakeypairlabel = Label(self.parent, text="RSA Key Pair")
+        rsakeypairlabel.grid(row=0)
+        rsakeypairstatuslabel = Label(self.parent, text="currently NOT loaded")
+        rsakeypairstatuslabel.config(fg='red')
+        rsakeypairstatuslabel.grid(row=0,column=1)
+        readkeylabel = Label(self.parent, text="Current (AES) Read Key:")
+        readkeylabel.grid(row=1)
+        readkeytextfield = Entry(self.parent, state='readonly')
+        readkeytextfield.grid(row=1, column=1)
+        readwritekeylabel = Label(self.parent, text="Current (AES) Write Key:")
+        readwritekeylabel.grid(row=2)
+        readwritekeytextfield = Entry(self.parent, state='readonly')
+        readwritekeytextfield.grid(row=2, column=1)
+        
+        #Upload and Retrival 
         self.uploadfilecontent= StringVar()
         uploadfilelabel = Label(self.parent, text="Upload File:")
-        uploadfilelabel.grid(row=0)
+        uploadfilelabel.grid(row=3)
         self.uploadfiletextfield = Entry(self.parent, textvariable=self.uploadfilecontent)
-        self.uploadfiletextfield.grid(row=0,column=1)
+        self.uploadfiletextfield.grid(row=3,column=1)
         uploadfilebutton = Button(self.parent, text="Open...", command=self.fileUpload)
-        uploadfilebutton.grid(row=0,column=2)
+        uploadfilebutton.grid(row=3,column=2)
 
         self.uploaddircontent = StringVar()
         uploaddirlabel = Label(self.parent, text="Upload Directory:")
-        uploaddirlabel.grid(row=1)
+        uploaddirlabel.grid(row=4)
         uploaddirtextfield = Entry(self.parent, textvariable=self.uploaddircontent)
-        uploaddirtextfield.grid(row=1,column=1)
+        uploaddirtextfield.grid(row=4,column=1)
         uploaddirbutton = Button(self.parent, text="Open...", command=self.dirUpload)
-        uploaddirbutton.grid(row=1,column=2)
+        uploaddirbutton.grid(row=4,column=2)
 
         self.retrievefilecontent = StringVar()
         retrievefilelabel = Label(self.parent, text="Retrieve File:")
-        retrievefilelabel.grid(row=2)
+        retrievefilelabel.grid(row=5)
         retrivefiletextfield = Entry(self.parent, textvariable=self.retrievefilecontent)
-        retrivefiletextfield.grid(row=2,column=1)
+        retrivefiletextfield.grid(row=5,column=1)
         retrievefilebutton = Button(self.parent, text="Open...", command=self.fileRetrieve)
-        retrievefilebutton.grid(row=2,column=2)
+        retrievefilebutton.grid(row=5,column=2)
 
         self.retrievedircontent = StringVar()
         retrievedirlabel = Label(self.parent, text="Retrieve Directory")
-        retrievedirlabel.grid(row=3)        
+        retrievedirlabel.grid(row=6)        
         retrivedirtextfield = Entry(self.parent, textvariable=self.retrievedircontent)
-        retrivedirtextfield.grid(row=3,column=1)
+        retrivedirtextfield.grid(row=6,column=1)
         retrievedirbutton = Button(self.parent, text="Open...", command=self.dirRetrieve)
-        retrievedirbutton.grid(row=3,column=2)        
-        
+        retrievedirbutton.grid(row=6,column=2)
+
     def onExit(self):
         self.quit()
 
@@ -75,6 +92,9 @@ class ClientGUI(Frame):
     def fileRetrieve(self):
         filename = filedialog.askopenfilename(filetypes=[("Client Logs","*.clog")])
         self.retrievefilecontent.set(filename)
+
+    def generateAESKey(self):
+        pass
         
 if __name__ == "__main__":
     root = Tk()

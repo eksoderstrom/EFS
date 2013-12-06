@@ -90,7 +90,7 @@ class ClientLog():
         return self.filename
 
 #########################################################
-# Shell Methods
+# Shell 
 #
 #########################################################
 
@@ -234,7 +234,7 @@ def send_public_key(key):
 # not been modified by somebody malicious
 #####################################################
 
-def verifiy_mac(file_header, key):
+def verify_mac(file_header, key):
     pass
 
 def verify_generation_count(file_header):

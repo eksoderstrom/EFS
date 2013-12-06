@@ -12,7 +12,7 @@ class ClientGUI(Frame):
         self.initialize()
 
     def initialize(self):
-        self.parent.title('Client')
+        self.parent.title('Client v1.0')
         menubar = Menu(self.parent)
         self.parent.config(menu=menubar)
         
@@ -20,14 +20,14 @@ class ClientGUI(Frame):
         fileMenu.add_command(label="Exit", command=self.onExit)
         menubar.add_cascade(label="File", menu=fileMenu)
         exportMenu = Menu(menubar)
-        menubar.add_cascade(label="Export Key", menu=exportMenu)
-        importMenu = Menu(menubar)
-        menubar.add_cascade(label="Import Key", menu=importMenu)
+        menubar.add_cascade(label="AES Keys", menu=aesMenu)
+        rsaMenu = Menu(menubar)
+        menubar.add_cascade(label="RSA Key", menu=rsatMenu)
         helpMenu = Menu(menubar)
         menubar.add_cascade(label="Help", menu=helpMenu)
 
         #Keys
-        rsakeypairlabel = Label(self.parent, text="RSA Key Pair")
+        rsakeypairlabel = Label(self.parent, text="RSA Key Pair:")
         rsakeypairlabel.grid(row=0)
         rsakeypairstatuslabel = Label(self.parent, text="currently NOT loaded")
         rsakeypairstatuslabel.config(fg='red')

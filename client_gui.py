@@ -24,12 +24,26 @@ class ClientGUI(Frame):
         importMenu = Menu(menubar)
         menubar.add_cascade(label="Import Key", menu=importMenu)
 
+        uploadfiletextfield = Entry(self.parent)
+        uploadfiletextfield.pack(side=LEFT)
+        uploadfilebutton = Button(self.parent, text="Upload File", command=self.fileUpload)
+        uploadfilebutton.pack(side=LEFT)
+        uploaddirtextfield = Entry(self.parent)
+        uploaddirtextfield.pack(side=LEFT)
+        uploaddirbutton = Button(self.parent, text="Upload Directory", command=self.dirUpload)
+        uploaddirbutton.pack(side=LEFT)
     def onExit(self):
         self.quit()
+
+    def fileUpload(self):
+        filename = filedialog.askopenfilename()
+
+    def dirUpload(self):
+        filename = filedialog.askdirectory()
 
         
 if __name__ == "__main__":
     root = Tk()
+    root.geometry("500x500")
     client = ClientGUI(root)
-    
     client.mainloop()

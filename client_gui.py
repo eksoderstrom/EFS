@@ -25,13 +25,13 @@ class ClientGUI(Frame):
         menubar.add_cascade(label="Import Key", menu=importMenu)
 
         uploadfiletextfield = Entry(self.parent)
-        uploadfiletextfield.pack(side=LEFT)
+        uploadfiletextfield.grid(row=0)
         uploadfilebutton = Button(self.parent, text="Upload File", command=self.fileUpload)
-        uploadfilebutton.pack(side=LEFT)
+        uploadfilebutton.grid(row=0,column=1)
         uploaddirtextfield = Entry(self.parent)
-        uploaddirtextfield.pack(side=LEFT)
+        uploaddirtextfield.grid(row=1)
         uploaddirbutton = Button(self.parent, text="Upload Directory", command=self.dirUpload)
-        uploaddirbutton.pack(side=LEFT)
+        uploaddirbutton.grid(row=1,column=1)
     def onExit(self):
         self.quit()
 

@@ -88,6 +88,26 @@ class ClientLog():
 
     def get_filename(self):
         return self.filename
+
+#########################################################
+# Shell Methods
+#
+#########################################################
+
+def xfer(source):
+    with open(source, "rb") as handle:
+        binary_data = xmlrpc.client.Binary(handle.read())
+    s.receive_file(binary_data)
+
+def mv(source, dst):
+    pass
+
+def enc(fn):
+    new_in_filepath = add_file_header(fn)
+    encrypt_file(new_in_filepath)
+
+def dec(fn):
+    decrypt_file(fn, "/Users/eks/Desktop/decrypted")
     
 #########################################################
 # Key Generation Methods
@@ -208,21 +228,6 @@ def save_key_pair(filepath, rsa_key):
 def send_public_key(key):
     key.publickey().exportKey()
 
-
-def xfer(source):
-    with open(source, "rb") as handle:
-        binary_data = xmlrpc.client.Binary(handle.read())
-    s.receive_file(binary_data)
-
-def mv(source, dst):
-    pass
-
-def enc(fn):
-    new_in_filepath = add_file_header(fn)
-    encrypt_file(new_in_filepath)
-
-def dec(fn):
-    decrypt_file(fn, "/Users/eks/Desktop/decrypted")
 
 ####################################################
 # A set of methods used to verify that a file has

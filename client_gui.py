@@ -22,7 +22,7 @@ class ClientGUI(Frame):
         exportMenu = Menu(menubar)
         menubar.add_cascade(label="AES Keys", menu=aesMenu)
         rsaMenu = Menu(menubar)
-        menubar.add_cascade(label="RSA Key", menu=rsatMenu)
+        menubar.add_cascade(label="RSA Key", menu=rsaMenu)
         helpMenu = Menu(menubar)
         menubar.add_cascade(label="Help", menu=helpMenu)
 

@@ -101,7 +101,7 @@ class ClientGUI(Frame):
         uploadfilelabel.grid(row=3)
         self.uploadfiletextfield = Entry(self.parent, textvariable=self.uploadfilecontent)
         self.uploadfiletextfield.grid(row=3,column=1)
-        uploadfilebutton = Button(self.parent, text="Open...", command=self.fileUpload)
+        uploadfilebutton = Button(self.parent, text="Open...", command=self.getfilename)
         uploadfilebutton.grid(row=3,column=2)
         sendfilebutton = Button(self.parent, text="Submit", command=self.fileUpload)
         sendfilebutton.grid(row=3,column=3, sticky=W+E+N+S, padx=5,pady=5,columnspan=2)
@@ -149,12 +149,23 @@ class ClientGUI(Frame):
         pass
 
     def fileUpload(self):
-        filename = filedialog.askopenfilename()
-        self.uploadfilecontent.set(filename)
+        """ Actually does a few things before
+            uploading the file to the server.
+            First, we have to add a file header
+            to the file, if it doesn't have one yet.
+            We can check for this with its client logs,
+            which the client can find out from a dictionary
+            or if the user specifies this.
+        """
+        pass
 
     def dirUpload(self):
         filename = filedialog.askdirectory()
         self.uploaddircontent.set(filename)
+        
+    def getfilename(self):
+        filename = filedialog.askopenfilename()
+        self.uploadfilecontent.set(filename)
         
     def dirRetrieve(self):
         filename = filedialog.askopenfilename(filetypes=[("Client Logs","*.clog")])

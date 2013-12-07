@@ -243,6 +243,28 @@ def verify_generation_count(file_header):
 def verify_nonce_value(file_header):
     pass
 
+def write_to_database(username, filename, client_log):
+    """ To associate a file to a client log, we make note of it
+        in a dictionary. This dictionary is written to a file
+        everytime we make a modification. The file should not be
+        modified by the user.
+
+        username:
+
+        filename: name of the file we are uploading
+
+        client_log: name of the client log associated with filename
+    """
+    self.dict = {}
+    filepath = username + '.db'
+    if os.path.exists(filepath):
+        with open(filepath, 'rb') as input:
+            self.dict = pickle.load(input)
+    self.dict[client_log] = filename
+
+    with open(out_filepath, 'wb') as outfile:
+        pickle.dump(self.dict, outfile, -1)
+
 def retrive_file_from_client_log(log_filepath):
     """ The user retrieves a file from the server.
         The user specifies the client log file.

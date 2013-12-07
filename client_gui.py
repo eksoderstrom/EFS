@@ -12,7 +12,7 @@ import os
 #################################################################
 
 RSA_KEY_SIZE = 2048
-
+AES_KEY_SIZE = 256
 
 #################################################################
 # GUI For the Encrypted File System.
@@ -83,11 +83,14 @@ class ClientGUI(Frame):
         self.rsakeypairstatuslabel = Label(self.parent, text="currently NOT loaded")
         self.rsakeypairstatuslabel.config(fg='red')
         self.rsakeypairstatuslabel.grid(row=0,column=1)
-        readkeylabel = Label(self.parent, text="Current (RSA) Read Key:")
+        readkeylabel = Label(self.parent, text="Current AES Key:")
         readkeylabel.grid(row=1)
-        readkeytextfield = Entry(self.parent, state='readonly')
+        readkeybutton = Button(self.parent, text="Generate", command=self.generate_aes_key)
+        readkeybutton.grid(row=1,column=2)
+        self.aes_key_text = StringVar()
+        readkeytextfield = Entry(self.parent, state='readonly',textvariable=self.aes_key_text)
         readkeytextfield.grid(row=1, column=1)
-        readwritekeylabel = Label(self.parent, text="Current (RSA) Write Key:")
+        readwritekeylabel = Label(self.parent, text="EXTRA FEATURE IGNORE!!!:")
         readwritekeylabel.grid(row=2)
         readwritekeytextfield = Entry(self.parent, state='readonly')
         readwritekeytextfield.grid(row=2, column=1)
@@ -161,8 +164,9 @@ class ClientGUI(Frame):
         filename = filedialog.askopenfilename(filetypes=[("Client Logs","*.clog")])
         self.retrievefilecontent.set(filename)
 
-    def generateAESKey(self):
-        pass
+    def generate_aes_key(self):
+        self.aes_key = client.generate_nonce(AES_KEY_SIZE)
+        self.aes_key_text.set(str(self.aes_key))
 
     def loadRSAKeyPair(self, username):
         ''' Checks a public-key pair exists for
@@ -203,6 +207,6 @@ class ClientGUI(Frame):
         
 if __name__ == "__main__":
     root = Tk()
-    root.geometry("380x300")
+    root.geometry("390x300")
     clientgui = ClientGUI(root)
     clientgui.mainloop()

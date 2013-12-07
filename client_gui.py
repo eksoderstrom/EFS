@@ -19,41 +19,41 @@ class ClientGUI(Frame):
         self.loadRSA = False
 
     def login_msg(self, parent):
-        top = Toplevel(self)
-        top.title('Login Screen')
-        top.geometry("380x100")
-        msg = Label(top, text="Input username and password.")
+        self.logintop = Toplevel(self)
+        self.logintop.title('Login Screen')
+        self.logintop.geometry("380x100")
+        msg = Label(self.logintop, text="Input username and password.")
         msg.grid(row=0)
 
         self.username = StringVar()
-        usernamelabel = Label(top, text="Username:")
+        usernamelabel = Label(self.logintop, text="Username:")
         usernamelabel.grid(row=1,sticky=W)
-        usernametextfield = Entry(top, textvariable=self.username)
+        usernametextfield = Entry(self.logintop, textvariable=self.username)
         usernametextfield.grid(row=1, column=1, sticky=W)
         self.password = StringVar()
-        passwordlabel = Label(top, text="Password:")
+        passwordlabel = Label(self.logintop, text="Password:")
         passwordlabel.grid(row=2,sticky=W)
-        passwordtextfield = Entry(top, show="*", textvariable=self.password)
+        passwordtextfield = Entry(self.logintop, show="*", textvariable=self.password)
         passwordtextfield.grid(row=2, column=1)
 
-        registerbutton = Button(top, text='Register',command=parent.register)
+        registerbutton = Button(self.logintop, text='Register',command=parent.register)
         registerbutton.grid(row=3,sticky=E)
-        loginbutton = Button(top, text='Login',command=parent.login)
+        loginbutton = Button(self.logintop, text='Login',command=parent.login)
         loginbutton.grid(row=3,column=1)
-        cancelbutton = Button(top, text='Cancel',
-                                command=top.destroy)
+        cancelbutton = Button(self.logintop, text='Cancel',
+                                command=self.logintop.destroy)
         cancelbutton.grid(row=3,column=2,sticky=W)
         root.lift()
 
     def gen_rsa_pair_msg(self):
-        rsa_msg = Toplevel()
-        rsa_msg.title("RSA Key-Pair Warning")
+        self.rsa_msg = Toplevel()
+        self.rsa_msg.title("RSA Key-Pair Warning")
 
-        warning = Label(rsa_msg, text="Cannot find any RSA-key pair for this user. Generate new key-pair?")
+        warning = Label(self.rsa_msg, text="Cannot find any RSA-key pair for this user. Generate new key-pair?")
         warning.grid(row=0)
-        okay = Button(rsa_msg, text="Generate",command=self.generate_rsa_key_pair)
+        okay = Button(self.rsa_msg, text="Generate",command=self.generate_rsa_key_pair)
         okay.grid(row=1)
-        cancel = Button(rsa_msg, text="Ignore Warning",command=rsa_msg.destroy)
+        cancel = Button(self.rsa_msg, text="Ignore Warning",command=self.rsa_msg.destroy)
         cancel.grid(row=1,column=2,sticky=W)
         
     def initialize(self):
@@ -73,9 +73,9 @@ class ClientGUI(Frame):
         #Keys
         rsakeypairlabel = Label(self.parent, text="RSA Key Pair:")
         rsakeypairlabel.grid(row=0)
-        rsakeypairstatuslabel = Label(self.parent, text="currently NOT loaded")
-        rsakeypairstatuslabel.config(fg='red')
-        rsakeypairstatuslabel.grid(row=0,column=1)
+        self.rsakeypairstatuslabel = Label(self.parent, text="currently NOT loaded")
+        self.rsakeypairstatuslabel.config(fg='red')
+        self.rsakeypairstatuslabel.grid(row=0,column=1)
         readkeylabel = Label(self.parent, text="Current (RSA) Read Key:")
         readkeylabel.grid(row=1)
         readkeytextfield = Entry(self.parent, state='readonly')
@@ -162,20 +162,29 @@ class ClientGUI(Frame):
         '''
         filename = username.get() + '.pri'
         if os.path.isfile(filename):
-            self.loadRSA = True
             self.key = client.load_rsa_key(filename)
+            self.rsakeypairstatuslabel['text'] = 'currently loaded'
+            self.rsakeypairstatuslabel.config(fg='green')
+            self.rsakeypairstatuslabel.grid(row=0,column=1)
         else:
             self.gen_rsa_pair_msg()
+
+        self.logintop.destroy()
 
     def generate_rsa_key_pair(self):
         self.key = client.generate_rsa_key(RSA_KEY_SIZE)
         filename = self.username.get() + '.pri'
         client.export_rsa_key_pair(filename, self.key)
-        rsa_msg = Toplevel()
-        rsa_msg.title("RSA Key-Pair")
-        self.loadRSA = True
-        msg = Label(rsa_msg, text="Key-Pair Saved in Folder")
+        rsa = Toplevel()
+        rsa.title("RSA Key-Pair")
+        self.rsakeypairstatuslabel['text'] = 'currently loaded' 
+        self.rsakeypairstatuslabel.config(fg='green')
+        self.rsakeypairstatuslabel.grid(row=0,column=1)
+        msg = Label(rsa, text="Key-Pair Saved in Folder")
         msg.grid(row=0)
+        msgbutton = Button(rsa, text="Thanks", command=rsa.destroy)
+        msgbutton.grid(row=1)
+        self.rsa_msg.destroy()
         
 if __name__ == "__main__":
     root = Tk()

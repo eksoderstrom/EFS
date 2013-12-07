@@ -12,7 +12,7 @@ import os
 #################################################################
 
 RSA_KEY_SIZE = 2048
-AES_KEY_SIZE = 256
+AES_KEY_SIZE = 32
 
 #################################################################
 # GUI For the Encrypted File System.
@@ -157,7 +157,7 @@ class ClientGUI(Frame):
             which the client can find out from a dictionary
             or if the user specifies this.
         """
-        pass
+        client.send_to_server(self.username, self.uploadfilecontent.get(), self.aes_key)
 
     def dirUpload(self):
         filename = filedialog.askdirectory()

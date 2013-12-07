@@ -252,15 +252,24 @@ def send_to_server(username, filename, key):
         composed of many methods. First it adds a file header.
         Then it encrypts the file and creates a file log. Then
         it adds the entry to the database dictionary. Then, finally,
-        we invoke an RPC call
+        we invoke an RPC call.
+
+        ClientGUI should be able to call this directly.
     """
 
     add_file_header(filename, key)
     new_filename = filename + '.fh'
     encrypt_file(new_filename, key)
 
+    #RPC Call here
+
 def receive_from_server(username, filename, key):
+    """ This method retrieves a file from the server.
+        ClientGUI should be able to call this directly.
+    """
+    
     decrypt_file(filename, key)
+    assert len(filename) > 10
     remove_file_header(filename[0:-10])
 
 def write_to_database(username, filename, client_log):

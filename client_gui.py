@@ -1,21 +1,65 @@
 #Note: tkinter import statement works for Python 3 ONLY
 from tkinter import *
+import client
+import os
 
 ################################################################
 # WARNING: ONLY USE THIS IF YOU ARE RUNNING PYTHON 3 or Higher
 #
 #################################################################
+
+RSA_KEY_SIZE = 2048
+
 class ClientGUI(Frame):
     def __init__(self, parent=None):
         Frame.__init__(self, parent)
         self.parent = parent
-        self.initialize()
-
-    def initialize(self):
         self.parent.title('Client v1.0')
+        self.initialize()
+        self.loadRSA = False
+
+    def login_msg(self, parent):
+        top = Toplevel(self)
+        top.title('Login Screen')
+        top.geometry("380x100")
+        msg = Label(top, text="Input username and password.")
+        msg.grid(row=0)
+
+        self.username = StringVar()
+        usernamelabel = Label(top, text="Username:")
+        usernamelabel.grid(row=1,sticky=W)
+        usernametextfield = Entry(top, textvariable=self.username)
+        usernametextfield.grid(row=1, column=1, sticky=W)
+        self.password = StringVar()
+        passwordlabel = Label(top, text="Password:")
+        passwordlabel.grid(row=2,sticky=W)
+        passwordtextfield = Entry(top, show="*", textvariable=self.password)
+        passwordtextfield.grid(row=2, column=1)
+
+        registerbutton = Button(top, text='Register',command=parent.register)
+        registerbutton.grid(row=3,sticky=E)
+        loginbutton = Button(top, text='Login',command=parent.login)
+        loginbutton.grid(row=3,column=1)
+        cancelbutton = Button(top, text='Cancel',
+                                command=top.destroy)
+        cancelbutton.grid(row=3,column=2,sticky=W)
+        root.lift()
+
+    def gen_rsa_pair_msg(self):
+        rsa_msg = Toplevel()
+        rsa_msg.title("RSA Key-Pair Warning")
+
+        warning = Label(rsa_msg, text="Cannot find any RSA-key pair for this user. Generate new key-pair?")
+        warning.grid(row=0)
+        okay = Button(rsa_msg, text="Generate",command=self.generate_rsa_key_pair)
+        okay.grid(row=1)
+        cancel = Button(rsa_msg, text="Ignore Warning",command=rsa_msg.destroy)
+        cancel.grid(row=1,column=2,sticky=W)
+        
+    def initialize(self):
+        
         menubar = Menu(self.parent)
         self.parent.config(menu=menubar)
-        
         fileMenu = Menu(menubar)
         fileMenu.add_command(label="Exit", command=self.onExit)
         menubar.add_cascade(label="File", menu=fileMenu)
@@ -75,9 +119,18 @@ class ClientGUI(Frame):
         retrivedirtextfield.grid(row=6,column=1)
         retrievedirbutton = Button(self.parent, text="Open...", command=self.dirRetrieve)
         retrievedirbutton.grid(row=6,column=2)
-
+        
+        root.lower()
+        self.login_msg(self)
+        
     def onExit(self):
         self.quit()
+
+    def login(self):
+        self.loadRSAKeyPair(self.username)
+
+    def register(self):
+        pass
 
     def fileUpload(self):
         filename = filedialog.askopenfilename()
@@ -97,9 +150,35 @@ class ClientGUI(Frame):
 
     def generateAESKey(self):
         pass
+
+    def loadRSAKeyPair(self, username):
+        ''' Checks a public-key pair exists for
+            the user. If not, ask the user if they
+            would like to generate a new rsa-key pair
+
+            username: used to find the corresponding
+            file that contains the rsa-key pair
+    
+        '''
+        filename = username.get() + '.pri'
+        if os.path.isfile(filename):
+            self.loadRSA = True
+            self.key = client.load_rsa_key(filename)
+        else:
+            self.gen_rsa_pair_msg()
+
+    def generate_rsa_key_pair(self):
+        self.key = client.generate_rsa_key(RSA_KEY_SIZE)
+        filename = self.username.get() + '.pri'
+        client.export_rsa_key_pair(filename, self.key)
+        rsa_msg = Toplevel()
+        rsa_msg.title("RSA Key-Pair")
+        self.loadRSA = True
+        msg = Label(rsa_msg, text="Key-Pair Saved in Folder")
+        msg.grid(row=0)
         
 if __name__ == "__main__":
     root = Tk()
     root.geometry("380x300")
-    client = ClientGUI(root)
-    client.mainloop()
+    clientgui = ClientGUI(root)
+    clientgui.mainloop()

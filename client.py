@@ -13,10 +13,9 @@ import pickle
     """
 
 s = xmlrpc.client.ServerProxy('http://localhost:8000')
-key = '0123456789abcdef'    #Key should of course not be hard-coded, and should be stored on disk. placeholder for now
 
 #Macros
-AES_KEY_SIZE = 256
+AES_KEY_SIZE = 32
 RSA_KEY_SIZE = 2048
 FILE_HEADER_NONCE_SIZE = 32
 WARNING = 'DO NOT DELETE THIS FILE. USED IN ENCRYPTED FILE SYSTEM.'
@@ -237,11 +236,32 @@ def send_public_key(key):
 def verify_mac(file_header, key):
     pass
 
-def verify_generation_count(file_header):
+def verify_generation_count(file_header, client_log):
     pass
 
-def verify_nonce_value(file_header):
+def verify_nonce_value(file_header, client_log):
     pass
+
+########################################################
+# These methods help with encrypting, decrypting, sending
+# and retrieving files and directories
+########################################################
+
+def send_to_server(username, filename, key):
+    """ This method sends the file to the server. It is
+        composed of many methods. First it adds a file header.
+        Then it encrypts the file and creates a file log. Then
+        it adds the entry to the database dictionary. Then, finally,
+        we invoke an RPC call
+    """
+
+    add_file_header(filename, key)
+    new_filename = filename + '.fh'
+    encrypt_file(new_filename, key)
+
+def receive_from_server(username, filename, key):
+    decrypt_file(filename, key)
+    remove_file_header(filename[0:-10])
 
 def write_to_database(username, filename, client_log):
     """ To associate a file to a client log, we make note of it
@@ -398,7 +418,7 @@ def has_file_header(in_filepath):
     
     
 #Taken from http://eli.thegreenplace.net/2010/06/25/aes-encryption-of-files-in-python-with-pycrypto/
-def encrypt_file(in_filepath, out_filepath=None, chunksize=64*1024):
+def encrypt_file(in_filepath, key, out_filepath=None, chunksize=64*1024):
     """ Encrypts a file using AES (CBC mode) with the
         given key.
 
@@ -443,7 +463,7 @@ def encrypt_file(in_filepath, out_filepath=None, chunksize=64*1024):
                 outfile.write(encryptor.encrypt(chunk))
 
 #Taken from http://eli.thegreenplace.net/2010/06/25/aes-encryption-of-files-in-python-with-pycrypto/
-def decrypt_file(in_filepath, out_filepath=None, chunksize=64*1024):
+def decrypt_file(in_filepath, key, out_filepath=None, chunksize=64*1024):
     """ Decrypts a file using AES (CBC mode) with the
         given key. Parameters are similar to encrypt_file,
         with one difference: out_filepath, if not supplied

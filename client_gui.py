@@ -5,18 +5,25 @@ import os
 
 ################################################################
 # WARNING: ONLY USE THIS IF YOU ARE RUNNING PYTHON 3 or Higher
+# It will not run on earlier versions of Python. Python < 3 uses
+# 'Tkinter' as opposed to 'tkinter'
 #
+# Developer/Recommended Python Version: 3.3.0
 #################################################################
 
 RSA_KEY_SIZE = 2048
 
+
+#################################################################
+# GUI For the Encrypted File System.
+# Basic Prototype
+#################################################################
 class ClientGUI(Frame):
     def __init__(self, parent=None):
         Frame.__init__(self, parent)
         self.parent = parent
         self.parent.title('Client v1.0')
         self.initialize()
-        self.loadRSA = False
 
     def login_msg(self, parent):
         self.logintop = Toplevel(self)
@@ -122,6 +129,12 @@ class ClientGUI(Frame):
         
         root.lower()
         self.login_msg(self)
+
+##################################################
+# Callback Methods
+#
+#
+##################################################
         
     def onExit(self):
         self.quit()
@@ -172,6 +185,8 @@ class ClientGUI(Frame):
         self.logintop.destroy()
 
     def generate_rsa_key_pair(self):
+        """ Generates a public-key pair for user
+        """
         self.key = client.generate_rsa_key(RSA_KEY_SIZE)
         filename = self.username.get() + '.pri'
         client.export_rsa_key_pair(filename, self.key)

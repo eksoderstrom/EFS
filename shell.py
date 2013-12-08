@@ -9,6 +9,8 @@ class Shell(cmd.Cmd):
             print("Usage: xfer source")
         client.xfer(p[0])
 
+    def do_echo(self, line):
+        client.echo(line)
 
     def do_mv(self, line):
         p = line.split()
@@ -26,6 +28,13 @@ class Shell(cmd.Cmd):
     def do_dec(self, line):
         p = line.split()
         client.dec(p[0])
+
+    def do_login(self, line):
+        p = line.split()
+        if len(p) != 2:
+            print("Usage: login username password")
+        client.login(p[0], p[1])
+
     
     def do_EOF(self, line):
         return True

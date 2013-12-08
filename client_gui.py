@@ -143,6 +143,9 @@ class ClientGUI(Frame):
         self.quit()
 
     def login(self):
+        print("username = " + self.username.get())
+        print("pw = " + self.password.get())
+        client.set_proxy('http://' + self.username.get() + ':' + self.password.get() + '@localhost:443')
         self.loadRSAKeyPair(self.username)
 
     def register(self):

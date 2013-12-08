@@ -12,13 +12,14 @@ import pickle
     how to associate private keys with files
     """
 
-s = xmlrpc.client.ServerProxy('http://localhost:8000')
+s = xmlrpc.client.ServerProxy('http://localhost:443')
 
 #Macros
 AES_KEY_SIZE = 32
 RSA_KEY_SIZE = 2048
 FILE_HEADER_NONCE_SIZE = 32
 WARNING = 'DO NOT DELETE THIS FILE. USED IN ENCRYPTED FILE SYSTEM.'
+
 
 class Client():
     def __init__(self, username, password):
@@ -92,6 +93,16 @@ class ClientLog():
 # Shell 
 #
 #########################################################
+def set_proxy(proxy):
+    global s 
+    s = xmlrpc.client.ServerProxy(proxy)
+    print("s set to " + proxy)
+
+def login(username, passwd):
+    set_proxy('https://' + username + ':' + passwd + '@localhost:443')
+
+def echo(arg):
+    print(s.echo(arg))
 
 def xfer(source):
     with open(source, "rb") as handle:

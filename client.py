@@ -23,8 +23,10 @@ WARNING = 'DO NOT DELETE THIS FILE. USED IN ENCRYPTED FILE SYSTEM.'
 
 
 class Client():
-    def __init__(self, username, password):
-        pass
+    def __init__(self, uname, passwd):
+        self.loggedin = False
+        self.username = uname
+        self.password = passwd
     
 ##########################################################################
 # File Header 
@@ -63,11 +65,31 @@ def set_proxy(proxy):
     s = xmlrpc.client.ServerProxy(proxy)
     print("s set to " + proxy)
 
-def login(username, passwd):
-    set_proxy('https://' + username + ':' + passwd + '@localhost:443')
+def login(uname, passwd):
+    global c
+    c = Client(uname, passwd)
+    set_proxy('https://' + uname + ':' + passwd + '@localhost:443')
+    try:
+        s.echo("login")
+    except xmlrpc.client.ProtocolError as err:
+        print("invalid credentials, please login")
+    print("successfully logged in as " + c.username)
+
 
 def echo(arg):
-    print(s.echo(arg))
+    try:
+        print(s.echo(arg))
+    except xmlrpc.client.ProtocolError as err:
+        print("invalid credentials")
+
+def mkdir(path):
+    s.mkdir(c.username, c.password, path)
+
+def rm(path):
+    try:
+        s.rm(c.username, c.password, path)
+    except xmlrpc.client.ProtocolError as err:
+        print("invalid credentials")
 
 def xfer(source):
     with open(source, "rb") as handle:

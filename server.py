@@ -1,3 +1,4 @@
+import os
 import socket
 import socketserver
 import ssl
@@ -11,10 +12,13 @@ except ImportError:
 
 KEYFILE='privatekey.pem'    # Replace with your PEM formatted key file
 CERTFILE='cert.pem'  # Replace with your PEM formatted certificate file
+ROOTDIR='/Users/eks/server'
 
 userPassDict = {"mraposa":"test123",
                 "jsmith":"hellow",
                 "eric":"e"}
+
+permissionsDict = {}
     
 class SimpleXMLRPCServerTLS(SimpleXMLRPCServer):
     def __init__(self, addr, requestHandler=SimpleXMLRPCRequestHandler,
@@ -24,10 +28,6 @@ class SimpleXMLRPCServerTLS(SimpleXMLRPCServer):
         SimpleXMLRPCDispatcher.__init__(self, allow_none, encoding)
 
         class VerifyingRequestHandler(SimpleXMLRPCRequestHandler):
-            '''
-            Request Handler that verifies username and password passed to
-            XML RPC server in HTTP URL sent by client.
-            '''
             # this is the method we must override
             def parse_request(self):
                 # first, call the original implementation which returns
@@ -106,8 +106,21 @@ def executeRpcServer():
         def echo(self, arg):
             return arg
 
-        def div(self, x, y):
-            return x // y
+        def mkdir(self, username, password, path):
+            try:
+                os.makedirs(ROOTDIR + "/" + username+ "/" + path)
+                return True
+            except OSError as exc:
+                return False
+
+        def receive_file(self, arg, pubkey):
+            with open("/Users/eks/Desktop/x", "wb") as handle:
+                handle.write(arg.data)
+                print('receiving' + pubkey.data)
+                return True
+
+        def rm(self, path):
+            pass
         
         def enterUID(self, uid):
             print (uid)

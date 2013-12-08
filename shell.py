@@ -12,6 +12,9 @@ class Shell(cmd.Cmd):
     def do_echo(self, line):
         client.echo(line)
 
+    def do_mkdir(self, line):
+        client.mkdir(line)
+
     def do_mv(self, line):
         p = line.split()
         if len(p) != 2:

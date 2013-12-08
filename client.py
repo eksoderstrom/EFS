@@ -91,10 +91,20 @@ def rm(path):
     except xmlrpc.client.ProtocolError as err:
         print("invalid credentials")
 
-def xfer(source):
-    with open(source, "rb") as handle:
+def xfer(filename, dst):
+    key = generate_aes_key()
+    add_file_header(filename, key)
+    new_filename = filename + '.fh'
+    encrypt_file(new_filename, key)
+    with open(new_filename+".encrypted", "rb") as handle:
         binary_data = xmlrpc.client.Binary(handle.read())
-    s.receive_file(binary_data)
+    s.receive_file(binary_data, dst)
+ 
+def get_file(path, dst):
+    arg = s.send_file_to_client(path)
+    with open(dst, 'wb') as handle:
+        handle.write(arg.data)
+    
 
 def mv(source, dst):
     pass
@@ -257,7 +267,7 @@ def send_to_server(username, filename, key):
     add_file_header(filename, key)
     new_filename = filename + '.fh'
     encrypt_file(new_filename, key)
-    store_file_log(in_filepath,filesize, gen_count, mac, nonce, key, encrypted_name)
+#store_file_log(in_filepath,filesize, gen_count, mac, nonce, key, encrypted_name)
     #RPC Call here
 
 def receive_from_server(username, filename, key):

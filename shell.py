@@ -6,15 +6,21 @@ class Shell(cmd.Cmd):
 
     def do_xfer(self, line):
         p = line.split()
-        if len(p) != 1:
-            print("Usage: xfer source")
-        client.xfer(p[0])
+        if len(p) != 2:
+            print("Usage: xfer source dst")
+        client.xfer(p[0], p[1])
 
     def do_echo(self, line):
         client.echo(line)
 
     def do_mkdir(self, line):
         client.mkdir(line)
+
+    def do_get(self, line):
+        p = line.split()
+        if len(p) != 2:
+            print("Usage: get src dst")
+        client.get_file(p[0], p[1])
 
     def do_mv(self, line):
         p = line.split()

@@ -14,9 +14,7 @@ KEYFILE='privatekey.pem'    # Replace with your PEM formatted key file
 CERTFILE='cert.pem'  # Replace with your PEM formatted certificate file
 ROOTDIR='/Users/eks/server'
 
-userPassDict = {"mraposa":"test123",
-                "jsmith":"hellow",
-                "eric":"e"}
+userPassDict = {"eric":"e"}
 
 permissionsDict = {}
     
@@ -113,11 +111,15 @@ def executeRpcServer():
             except OSError as exc:
                 return False
 
-        def receive_file(self, arg, pubkey):
-            with open("/Users/eks/Desktop/x", "wb") as handle:
+        def receive_file(self, arg, dst):
+            with open(dst, "wb") as handle:
                 handle.write(arg.data)
-                print('receiving' + pubkey.data)
                 return True
+
+        def send_file_to_client(self, path):
+            with open(path, "rb") as handle:
+                return xmlrpc.client.Binary(handle.read())
+
 
         def rm(self, path):
             pass

@@ -8,7 +8,7 @@ import hmac
 import ntpath
 import pickle
 #custom imports
-import clientlog
+from client_log import ClientLog
 """TODO
     how to associate private keys with files
     """
@@ -347,7 +347,6 @@ def add_file_header(in_filepath, key):
                     break
                 outfile.write(chunk)
     outfile.close()
-store_file_log(in_filepath,filesize, gen_count, mac, nonce, key, encrypted_name)
 def read_file_header(in_filepath):
     """ Retrieves the file header object that is
         at the front of a file.

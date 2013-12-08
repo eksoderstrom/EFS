@@ -2,6 +2,7 @@ import cmd
 import client
 
 class Shell(cmd.Cmd):
+    prompt = ">> "
 
     def do_xfer(self, line):
         p = line.split()
@@ -43,4 +44,5 @@ class Shell(cmd.Cmd):
         return True
 
 if __name__ == '__main__':
-    Shell().cmdloop()
+    Shell().cmdloop("Encrypted File System commandline interface. Use 'help' to get a listing of available shell commands")
+

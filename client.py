@@ -6,8 +6,9 @@ import Crypto.Random.OSRNG.posix as Nonce
 #MAC import
 import hmac
 import ntpath
-
 import pickle
+#custom imports
+import clientlog
 """TODO
     how to associate private keys with files
     """
@@ -52,42 +53,6 @@ class FileHeader():
     def get_filename(self):
         return self.filename
 
-##########################################################################
-# Client Log
-# This class is used to store data abaout individual files on the client.
-# The main reason why client log objects are used as opposed to simply
-# writing the parameters of a file to the .clog file is because it is easier
-# to extract information, especially if we choose to store more than one file
-# in an client log file (ie: store a directory of files in a single client
-# file)
-##########################################################################
-class ClientLog():
-    def __init__(self, filename, nonce, key, gen_count):
-        """ The parameters used here are for
-            retrieval and identification
-            purposes.
-
-            nonce: random number in bytes
-            mac: used to verify the file
-            filename:
-        """
-        self.nonce = nonce
-        self.key = key
-        self.filename = filename
-        self.gen_count = gen_count
-
-    def get_nonce(self):
-        return self.nonce
-
-    def get_key(self):
-        return self.key
-
-    def get_gen_count(self):
-        return self.gen_count
-
-    def get_filename(self):
-        return self.filename
-
 #########################################################
 # Shell 
 #
@@ -102,7 +67,6 @@ def mv(source, dst):
     pass
 
 def enc(fn):
-    new_in_filepath = add_file_header(fn)
     encrypt_file(new_in_filepath)
 
 def dec(fn):
@@ -260,7 +224,7 @@ def send_to_server(username, filename, key):
     add_file_header(filename, key)
     new_filename = filename + '.fh'
     encrypt_file(new_filename, key)
-
+    store_file_log(in_filepath,filesize, gen_count, mac, nonce, key, encrypted_name)
     #RPC Call here
 
 def receive_from_server(username, filename, key):
@@ -314,7 +278,7 @@ def retrive_file_from_client_log(log_filepath):
     filename = log.get_filename()
     print('Successfully retrived' + filename)
 
-def store_file_log(in_filepath,filesize, gen_count, mac, nonce, key, out_filepath=None):
+def store_file_log(in_filepath,filesize, gen_count, mac, nonce, key, encrypted_name, out_filepath=None):
     """ Stores information about file on the client-size.
 
         filesize:
@@ -337,7 +301,7 @@ def store_file_log(in_filepath,filesize, gen_count, mac, nonce, key, out_filepat
     if not out_filepath:
         out_filepath = in_filepath + '.clog'
 
-    log = ClientLog(out_filepath, nonce, key, gen_count)
+    log = ClientLog(out_filepath, nonce, key, gen_count, encrypted_name)
     with open(out_filepath, 'wb') as outfile:
         pickle.dump(log, outfile, -1)
         
@@ -372,7 +336,7 @@ def add_file_header(in_filepath, key):
                     break
                 outfile.write(chunk)
     outfile.close()
-
+store_file_log(in_filepath,filesize, gen_count, mac, nonce, key, encrypted_name)
 def read_file_header(in_filepath):
     """ Retrieves the file header object that is
         at the front of a file.

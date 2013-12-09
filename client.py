@@ -122,6 +122,7 @@ def decrypt_aes_key(private_rsa_key, encrypted_aes_key):
     """
     decrypted_aes_key = private_rsa_key.decrypt(message)
     return decrypted_aes_key
+
 def generate_aes_key():
     key = generate_nonce(AES_KEY_SIZE)
     return key
@@ -196,11 +197,6 @@ def save_key_pair(filepath, rsa_key):
     """
     export_rsa_key_pair(filepath)
     export_rsa_public_key(filepath)
-    
-
-def send_public_key(key):
-    key.publickey().exportKey()
-
 
 ####################################################
 # A set of methods used to verify that a file has
@@ -287,26 +283,7 @@ def write_to_database(username, filename, client_log):
 
     with open(out_filepath, 'wb') as outfile:
         pickle.dump(self.dict, outfile, -1)
-
-def retrive_file_from_client_log(log_filepath):
-    """ The user retrieves a file from the server.
-        The user specifies the client log file.
-
-        log_filepath: filepath of client log associated
-        with the file that the user wants to retrive from
-        the server
-    """
-    assert len(log_filepath) > 5
-    assert log_filepath[-5:] == '.clog'
-
-    with open(log_filepath, 'rb') as input:
-        log = pickle.load(input)
-
-    #RPC Call to Server
-    
-    
-    filename = log.get_filename()
-    print('Successfully retrived' + filename)
+        
 
 def store_file_log(in_filepath, gen_count, mac, nonce, key, encrypted_name, out_filepath=None):
     """ Stores information about file on the client-size.

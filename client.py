@@ -203,13 +203,37 @@ def save_key_pair(filepath, rsa_key):
 # not been modified by somebody malicious
 #####################################################
 
-def verify_mac(file_header, key):
-    pass
+def verify_mac(file_header, file_log, decrypted_file):
+    """ Given a file header, we use the file
+        log to verify that no one (who has not been
+        given permission) has modified the file.
+        We accomplish this by comparing the mac value
+        in the file header against the new mac value
+        we calculate from the contents of the decrypted
+        file.
 
-def verify_generation_count(file_header, client_log):
-    pass
+        Return true: file has not been tampered with
+    """
+    old_mac = file_header.get_mac()
+    key = file_log.get_key()
+    new_mac = generate_mac(key, decrypted_file)
 
-def verify_nonce_value(file_header, client_log):
+    return old_mac == new_mac
+def verify_generation_count(file_header, file_log):
+    """ Given a file header, we use the file log to
+        check if the file we obtained from the file
+        server is at least as recent as when it was
+        uploaded with this file log. This means that
+        the generation count in the file header must
+        be equal to or greater than the generation
+        count in the file log.
+    """
+    new_gen_count = file_header.get_gen_count()
+    old_gen_count = file_log.get_gen_count()
+
+    return old_gen_count <= new_gen_count
+
+def verify_nonce_value(file_header, file_log):
     pass
 
 ########################################################
@@ -308,7 +332,7 @@ def store_file_log(in_filepath, gen_count, mac, nonce, key, encrypted_name, out_
     if not out_filepath:
         out_filepath = in_filepath + '.clog'
 
-    log = ClientLog(in_filepath, nonce, key, gen_count, encrypted_name)
+    log = FileLog(in_filepath, nonce, key, gen_count, mac, encrypted_name)
     with open(out_filepath, 'wb') as outfile:
         pickle.dump(log, outfile, -1)
         
@@ -344,6 +368,7 @@ def add_file_header(in_filepath, key):
                     break
                 outfile.write(chunk)
     outfile.close()
+    
 def read_file_header(in_filepath):
     """ Retrieves the file header object that is
         at the front of a file.
@@ -389,13 +414,6 @@ def remove_file_header(in_filepath):
                 if len(chunk) == 0:
                     break
                 outfile.write(chunk)
- 
-    
-def has_file_header(in_filepath):
-    """ Checks if this file has a file header
-        placed by our encrypted file system
-    """
-    
     
 #Taken from http://eli.thegreenplace.net/2010/06/25/aes-encryption-of-files-in-python-with-pycrypto/
 def encrypt_file(in_filepath, key, out_filepath=None, chunksize=64*1024):

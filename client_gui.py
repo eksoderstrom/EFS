@@ -1,7 +1,7 @@
 #Note: tkinter import statement works for Python 3 ONLY
 from tkinter import *
 import client
-import os
+import os, xmlrpc.client
 
 ################################################################
 # WARNING: ONLY USE THIS IF YOU ARE RUNNING PYTHON 3 or Higher
@@ -121,7 +121,9 @@ class ClientGUI(Frame):
         retrivefiletextfield.grid(row=5,column=1)
         retrievefilebutton = Button(self.parent, text="Open...", command=self.fileRetrieve)
         retrievefilebutton.grid(row=5,column=2)
-
+        retrievefilebutton = Button(self.parent, text="Retrieve", command=self.fileRetrieveServer)
+        retrievefilebutton.grid(row=5,column=3, sticky=W+E+N+S, padx=5,pady=5,columnspan=2)
+        
         self.retrievedircontent = StringVar()
         retrievedirlabel = Label(self.parent, text="Retrieve Directory")
         retrievedirlabel.grid(row=6)        
@@ -143,24 +145,30 @@ class ClientGUI(Frame):
         self.quit()
 
     def login(self):
-        print("username = " + self.username.get())
-        print("pw = " + self.password.get())
-        client.set_proxy('http://' + self.username.get() + ':' + self.password.get() + '@localhost:443')
+        self.s = xmlrpc.client.ServerProxy('https://' + self.username.get() + ':' + self.password.get() + '@localhost:443')
+        try:
+            self.s.echo("login")
+        except xmlrpc.client.ProtocolError as err:
+            print("invalid credentials, please login")        
+        
         self.loadRSAKeyPair(self.username)
 
     def register(self):
         pass
 
     def fileUpload(self):
-        """ Actually does a few things before
-            uploading the file to the server.
-            First, we have to add a file header
-            to the file, if it doesn't have one yet.
-            We can check for this with its client logs,
-            which the client can find out from a dictionary
-            or if the user specifies this.
+        """ Sends a file to server For further information,
+            look at send_to_server in client.py.
         """
-        client.send_to_server(self.username, self.uploadfilecontent.get(), self.aes_key)
+        client.send_to_server(self.username, self.uploadfilecontent.get(), self.aes_key, self.s)
+        """msg = Label(rsa, text="File Successfully Uploaded to Server")
+        msg.grid(row=0)
+        msgbutton = Button(rsa, text="Thanks", command=rsa.destroy)
+        msgbutton.grid(row=1)
+        """
+        
+    def fileRetrieveServer(self):
+        client.retrieve_from_server(self.retrievefilecontent.get(), self.s)
 
     def dirUpload(self):
         filename = filedialog.askdirectory()

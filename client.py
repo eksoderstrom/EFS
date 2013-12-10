@@ -302,6 +302,12 @@ def delete_file():
 def rename_file():
     pass
 
+def share_public_key():
+    pass
+
+def get_public_key():
+    pass
+
 def retrieve_database(username):
     db = {}
     filepath = username + '.db'
@@ -382,11 +388,12 @@ def add_file_header(in_filepath, key, db, username):
     final_filename = out_filepath + '.encrypted'
     dst = username + '/' + get_filename_from_filepath(final_filename)
     chunksize=64*1024
+    gen_count = 0
     nonce = generate_nonce(FILE_HEADER_NONCE_SIZE)
     mac = generate_mac(key, in_filepath)
     filename = get_filename_from_filepath(in_filepath)
-    file_header = FileHeader(nonce, mac, filename)
-    store_file_log(final_filename, 0, mac, nonce, key, dst, db, username)
+    file_header = FileHeader(nonce, mac, filename, gen_count)
+    store_file_log(final_filename, gen_count, mac, nonce, key, dst, db, username)
     
     with open(in_filepath, 'rb') as infile:
         with open(out_filepath, 'wb') as outfile:

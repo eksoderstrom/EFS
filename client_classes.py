@@ -67,7 +67,7 @@ class FileLog():
 # at the front of the file we want to encrypt.
 ##########################################################################
 class FileHeader():
-    def __init__(self, nonce, mac, filename):
+    def __init__(self, nonce, mac, filename, gen_count):
         """ The parameters stored in the file header
             are used for security and identification
             purposes.
@@ -79,6 +79,7 @@ class FileHeader():
         self.nonce = nonce
         self.mac = mac
         self.filename = filename
+        self.gen_count = gen_count
 
     def get_nonce(self):
         return self.nonce
@@ -88,3 +89,6 @@ class FileHeader():
 
     def get_filename(self):
         return self.filename
+
+    def get_gen_count(self):
+        return self.gen_count

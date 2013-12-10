@@ -64,16 +64,17 @@ class ClientGUI(Frame):
         cancel.grid(row=1,column=2,sticky=W)
         
     def initialize(self):
-        
+
+        #Menu
         menubar = Menu(self.parent)
         self.parent.config(menu=menubar)
         fileMenu = Menu(menubar)
         fileMenu.add_command(label="Exit", command=self.onExit)
         menubar.add_cascade(label="File", menu=fileMenu)
-        aesMenu = Menu(menubar)
-        menubar.add_cascade(label="AES Keys", menu=aesMenu)
-        rsaMenu = Menu(menubar)
-        menubar.add_cascade(label="RSA Key", menu=rsaMenu)
+        optMenu = Menu(menubar)
+        optMenu.add_command(label="Export RSA Public Key", command=self.onExit)
+        optMenu.add_command(label="Import RSA Keys...", command=self.onExit)
+        menubar.add_cascade(label="Options", menu=optMenu)
         helpMenu = Menu(menubar)
         menubar.add_cascade(label="Help", menu=helpMenu)
 
@@ -152,6 +153,7 @@ class ClientGUI(Frame):
             print("invalid credentials, please login")        
         
         self.loadRSAKeyPair(self.username)
+        self.dict = client.retrieve_database(self.username.get())
 
     def register(self):
         pass
@@ -160,7 +162,7 @@ class ClientGUI(Frame):
         """ Sends a file to server For further information,
             look at send_to_server in client.py.
         """
-        client.send_to_server(self.username, self.uploadfilecontent.get(), self.aes_key, self.s)
+        client.send_to_server(self.username.get(), self.uploadfilecontent.get(), self.aes_key, self.s, self.dict)
         """msg = Label(rsa, text="File Successfully Uploaded to Server")
         msg.grid(row=0)
         msgbutton = Button(rsa, text="Thanks", command=rsa.destroy)
@@ -168,7 +170,7 @@ class ClientGUI(Frame):
         """
         
     def fileRetrieveServer(self):
-        client.retrieve_from_server(self.retrievefilecontent.get(), self.s)
+        client.retrieve_from_server(self.retrievefilecontent.get(), self.s, self.dict)
 
     def dirUpload(self):
         filename = filedialog.askdirectory()

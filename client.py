@@ -8,7 +8,9 @@ import hmac
 import ntpath
 import pickle
 #custom imports
-import client_classes
+from client_classes import FileHeader
+from client_classes import FileLog
+from client_classes import DirectoryLog
 
 s = xmlrpc.client.ServerProxy('http://localhost:443')
 
@@ -241,7 +243,7 @@ def verify_nonce_value(file_header, file_log):
 # and retrieving files and directories
 ########################################################
 
-def send_to_server(username, filename, key, s):
+def send_to_server(username, filename, key, s, db):
     """ This method sends the file to the server. It is
         composed of many methods. First it adds a file header.
         Then it encrypts the file and creates a file log. Then
@@ -251,18 +253,17 @@ def send_to_server(username, filename, key, s):
         ClientGUI should be able to call this directly.
     """
 
-    add_file_header(filename, key)
-    new_filename = filename + '.fh'
+    new_filename = add_file_header(filename, key, db, username)
     encrypt_file(new_filename, key)
     final_filename = new_filename + '.encrypted'
     
     #RPC Call here
-    dst = 'fable/' + get_filename_from_filepath(final_filename)
+    dst = username + '/' + get_filename_from_filepath(final_filename)
     with open(final_filename, "rb") as handle:
         binary_data = xmlrpc.client.Binary(handle.read())
     s.receive_file(binary_data, dst)
     
-def retrieve_from_server(log_filepath, s):
+def retrieve_from_server(log_filepath, s, db):
     """ This method retrieves a file from the server.
         ClientGUI should be able to call this directly.
 
@@ -273,7 +274,7 @@ def retrieve_from_server(log_filepath, s):
 
     with open(log_filepath, 'rb') as input:
         log = pickle.load(input)
-    filename = log.get_filename()
+    filename = log.get_encrypted_name()
     key = log.get_key()
     arg = s.send_file_to_client(filename)
     filename = 'result.txt.fh.encrypted'
@@ -283,9 +284,28 @@ def retrieve_from_server(log_filepath, s):
     assert len(filename) > 10
     remove_file_header(filename[0:-10])
 
-def share_file(username, password, other_username, filepath):
+def share_file(username, password, other_username, client_log):
     pass
 
+def share_directory(username, password, other_username, client_log):
+    pass
+
+def send_dir_to_server(username, directory, key, s, db):
+    pass
+
+def retrieve_dir_from_server(log_filepath, s, db):
+    pass
+
+def retrieve_database(username):
+    db = {}
+    filepath = username + '.db'
+    
+    if os.path.exists(filepath):
+        with open(filepath, 'rb') as input:
+            db = pickle.load(input)
+    
+    return db
+            
 def write_to_database(username, filename, client_log):
     """ To associate a file to a client log, we make note of it
         in a dictionary. This dictionary is written to a file
@@ -298,18 +318,18 @@ def write_to_database(username, filename, client_log):
 
         client_log: name of the client log associated with filename
     """
-    self.dict = {}
+    db = {}
     filepath = username + '.db'
     if os.path.exists(filepath):
         with open(filepath, 'rb') as input:
-            self.dict = pickle.load(input)
-    self.dict[client_log] = filename
+            db = pickle.load(input)
+    db[client_log] = filename
 
-    with open(out_filepath, 'wb') as outfile:
-        pickle.dump(self.dict, outfile, -1)
+    with open(filepath, 'wb') as outfile:
+        pickle.dump(db, outfile, -1)
         
 
-def store_file_log(in_filepath, gen_count, mac, nonce, key, encrypted_name, out_filepath=None):
+def store_file_log(in_filepath, gen_count, mac, nonce, key, encrypted_name, db, username, out_filepath=None):
     """ Stores information about file on the client-size.
 
         filesize:
@@ -328,10 +348,12 @@ def store_file_log(in_filepath, gen_count, mac, nonce, key, encrypted_name, out_
         nonce:
 
         key: used to encrypt file
+
+        encrypted_name: filepath on the encrypted file server
     """
     if not out_filepath:
         out_filepath = in_filepath + '.clog'
-
+    write_to_database(username, in_filepath, out_filepath)
     log = FileLog(in_filepath, nonce, key, gen_count, mac, encrypted_name)
     with open(out_filepath, 'wb') as outfile:
         pickle.dump(log, outfile, -1)
@@ -344,7 +366,7 @@ def get_filename_from_filepath(filepath):
     head, tail = ntpath.split(filepath)
     return tail or ntpath.basename(head)
 
-def add_file_header(in_filepath, key):
+def add_file_header(in_filepath, key, db, username):
     """ Adds a file header obj to the front of the file
         using Python's cpickle. 
         
@@ -352,12 +374,14 @@ def add_file_header(in_filepath, key):
     """
     out_filepath = in_filepath + '.fh'
     final_filename = out_filepath + '.encrypted'
+    dst = username + '/' + get_filename_from_filepath(final_filename)
     chunksize=64*1024
     nonce = generate_nonce(FILE_HEADER_NONCE_SIZE)
     mac = generate_mac(key, in_filepath)
     filename = get_filename_from_filepath(in_filepath)
     file_header = FileHeader(nonce, mac, filename)
-    store_file_log(final_filename, 0, mac, nonce, key,  final_filename)
+    store_file_log(final_filename, 0, mac, nonce, key, dst, db, username)
+    
     with open(in_filepath, 'rb') as infile:
         with open(out_filepath, 'wb') as outfile:
 
@@ -368,7 +392,8 @@ def add_file_header(in_filepath, key):
                     break
                 outfile.write(chunk)
     outfile.close()
-    
+    return out_filepath
+
 def read_file_header(in_filepath):
     """ Retrieves the file header object that is
         at the front of a file.

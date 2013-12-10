@@ -296,6 +296,12 @@ def send_dir_to_server(username, directory, key, s, db):
 def retrieve_dir_from_server(log_filepath, s, db):
     pass
 
+def delete_file():
+    pass
+
+def rename_file():
+    pass
+
 def retrieve_database(username):
     db = {}
     filepath = username + '.db'

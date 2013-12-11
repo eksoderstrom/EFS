@@ -1,8 +1,10 @@
 import cmd
 import client
+from client import Client
 
 class Shell(cmd.Cmd):
     prompt = ">> "
+    c = Client()
 
     def do_xfer(self, line):
         p = line.split()
@@ -11,7 +13,7 @@ class Shell(cmd.Cmd):
         client.xfer(p[0], p[1])
 
     def do_echo(self, line):
-        client.echo(line)
+        self.c.echo(line)
 
     def do_mkdir(self, line):
         client.mkdir(line)
@@ -43,14 +45,22 @@ class Shell(cmd.Cmd):
         p = line.split()
         if len(p) != 2:
             print("Usage: login username password")
-        client.login(p[0], p[1])
+        else:
+            self.c.login(p[0], p[1])
+
+    def do_logout(self, line):
+        p = line.split()
+        if len(p) != 0:
+            print("Usage: logout")
+        else:
+            self.c.logout()
 
     def do_ls(self, line):
         p = line.split()
         if len(p) == 1:
-            client.ls(p[0])
+            self.c.ls(p[0])
         elif len(p) == 0:
-            client.ls()
+            self.c.ls()
         else:
             print("Usage: ls path")
     
@@ -59,21 +69,29 @@ class Shell(cmd.Cmd):
         if len(p) != 0:
             print("Usage: pwd")
         else:
-            client.pwd()
+            self.c.pwd()
 
     def do_cd(self, line):
         p = line.split()
         if len(p) != 1:
             print("Usage: cd directory")
         else:
-            client.cd(p[0])
+            self.c.cd(p[0])
 
     def do_register(self, line):
         p = line.split()
         if len(p) != 2:
             print("Usage: register username password")
         else:
-            client.register(p[0], p[1])
+            self.c.register(p[0], p[1])
+
+    def do_whoami(self, line):
+        p = line.split()
+        if len(p) != 0:
+            print("Usage: whoami")
+        else:
+            self.c.whoami()
+    
 
     def do_EOF(self, line):
         return True

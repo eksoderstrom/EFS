@@ -11,6 +11,8 @@ import pickle
 from client_classes import FileHeader
 from client_classes import FileLog
 from client_classes import DirectoryLog
+#regex import
+import re
 
 s = xmlrpc.client.ServerProxy('https://localhost:443')
 
@@ -21,11 +23,88 @@ FILE_HEADER_NONCE_SIZE = 32
 
 class Client():
     def __init__(self):
-        self.s = xmlrpc.client.ServerProxy('http://localhost:443')
-        self.loggedin = False
+        self.s = xmlrpc.client.ServerProxy('https://localhost:443')
         self.username = None
         self.password = None
-        self.cd = None
+        self.wd = None
+
+    def echo(self, arg):
+        try:
+            print(s.echo(arg))
+        except:
+            print("echo failed")
+
+    def login(self, uname, passwd):
+        if s.login(uname, passwd) == 'ok':
+            self.username = uname
+            self.password = passwd
+            self.wd = '/' + uname + "/"
+            print("successfully logged in as " + self.username)
+        else:
+            print("login unsuccessful")
+
+    def logout(self):
+        name = self.username
+        self.username = None
+        self.password = None
+        print("logged out " + name)
+
+    def whoami(self):
+        if (self.username != None):
+            print(self.username)
+        else:
+            print("not logged in")
+
+    def register(self, username, password):
+        if self.username == None:
+            if self.s.register(username, password) == 'ok':
+                print("registration success")
+            else:
+                print("registration failed, choose another username")
+        else:
+            print("logout before registering as another user")
+
+
+    def ls(self, path='None'):
+        if path=='None':
+            path = self.wd
+        try:
+            print(s.ls(self.username, self.password, path))
+        except:
+            print('no such file or directory')
+
+    def cd(self, path):
+        if path[0] != '/':
+            try:
+                if path in s.ls(self.username, self.password, self.wd):
+                    self.wd = self.wd + path
+            except:
+               print("invalid directory name")
+        else:
+            pass
+
+    def pwd(self):
+        print(self.wd)
+
+
+    """
+    unimplemented functions
+    """
+
+    def mkdir(self, path):
+        if path[0] == '/':
+            p = re.split('/',path)
+            if p[1] == self.username:
+                s.mkdir(self.username, self.password, path)
+            else:
+                print('you don\'t have permission to access that directory')
+        else:
+            p = re.split('/',self.wd)
+            if (p[1] == self.username):
+                s.mkdir(self.username, self.password, self.wd + path)
+            else:
+                print('you don\'t have permission to access that directory')
+                 
 
 c = Client()
 
@@ -38,30 +117,9 @@ def set_proxy(proxy):
     s = xmlrpc.client.ServerProxy(proxy)
     print("s set to " + proxy)
 
-def login(uname, passwd):
-    global c
-    c.username = uname
-    c.password = passwd
-    set_proxy('https://' + uname + ':' + passwd + '@localhost:443')
-    try:
-        s.echo("login")
-    except xmlrpc.client.ProtocolError as err:
-        print("invalid credentials, please login")
-    c.cd = uname + "/"
-    print("successfully logged in as " + c.username)
 
 
-def echo(arg):
-    try:
-        print(s.echo(arg))
-    except xmlrpc.client.ProtocolError as err:
-        print("invalid credentials")
 
-def mkdir(path):
-    if path[0] == '/':
-        s.mkdir(c.username, c.password, path)
-    else:
-        s.mkdir(c.username, c.password, c.cd + path)
 
 def rm(path):
     try:
@@ -69,16 +127,6 @@ def rm(path):
     except xmlrpc.client.ProtocolError as err:
         print("invalid credentials")
 
-def cd(path):
-    if path[0] != '/':
-        try:
-            if path in s.ls(c.username, c.password, c.cd):
-                global c
-                c.cd = c.cd + path
-        except:
-           print("invalid directory name")
-    else:
-        pass
 
 
 def xfer(filename, dst):
@@ -96,24 +144,8 @@ def get_file(path, dst):
         handle.write(arg.data)
     
 
-def ls(path='None'):
-    if path=='None':
-        global c
-        path = c.cd
-    try:
-        print(s.ls(c.username, c.password, path))
-    except:
-        print('no such file or directory')
 
-def pwd():
-    global c
-    print(c.cd)
 
-def register(username, password):
-    if s.register(username, password) == 'ok':
-        print("registration success")
-    else:
-        print("registration failed, choose another username")
     
 
 def mv(source, dst):
@@ -297,7 +329,7 @@ def create_file(owner, filename, dst, s, db):
     
     #RPC Call here
     encrypted_name = generate_mac_for_filename(aes_key, get_filename_from_filepath(final_filename))
-    dst = dst + '\' encrypted_name
+    dst = dst + '/' + encrypted_name
     store_file_log(in_filepath, gen_count, aes_key, rsa_key, encrypted_name, owner)
     with open(final_filename, "rb") as handle:
         binary_data = xmlrpc.client.Binary(handle.read())

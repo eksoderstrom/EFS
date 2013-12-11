@@ -97,6 +97,18 @@ def executeRpcServer():
     # Register an instance; all the methods of the instance are
     # published as XML-RPC methods (in this case, just 'div').
     class MyFuncs:
+        """
+        functions related to authentication and registration
+        """
+        def login(self, username, password):
+            if userPassDict[username] == password:
+                return "ok"
+            else:
+                return "fail"
+
+        """
+        functions related to filesystem navigation
+        """
         def echo(self, arg):
             return arg
 
@@ -121,14 +133,11 @@ def executeRpcServer():
                 return xmlrpc.client.Binary(handle.read())
 
         def register(self, username, password):
-            return 'ok'
-            """
             if username in userPassDict:
                 return "fail"
             else:
                 userPassDict[username] = password
                 return "ok"
-            """
 
 
 

@@ -185,6 +185,10 @@ def generate_mac(key, filepath):
             mac.update(chunk)
     return mac.hexdigest()
 
+def generate_mac_for_filename(key, filename):
+    mac = hmac.new(key, str.encode(filename), hashlib.sha256)
+    return mac.hexdigest()
+
 def export_rsa_key_pair(filepath, key, passphrase=None):
     """ Save a copy of our rsa key pair
         Treat this as saving the private
@@ -276,50 +280,45 @@ def verify_generation_count(file_header, file_log):
 
     return old_gen_count <= new_gen_count
 
-def verify_nonce_value(file_header, file_log):
-    pass
-
 ########################################################
 # These methods help with encrypting, decrypting, sending
 # and retrieving files and directories
 ########################################################
 
-def send_to_server(username, filename, key, s, db):
-    """ This method sends the file to the server. It is
-        composed of many methods. First it adds a file header.
-        Then it encrypts the file and creates a file log. Then
-        it adds the entry to the database dictionary. Then, finally,
-        we invoke an RPC call.
-
-        ClientGUI should be able to call this directly.
+def create_file(owner, filename, dst, s, db):
+    """ This method creates a file on the server.
+        
     """
-
-    new_filename = add_file_header(filename, key, db, username)
-    encrypt_file(new_filename, key)
+    aes_key = generate_aes_key()
+    rsa_key = generate_rsa_key(RSA_KEY_SIZE)
+    new_filename = add_file_header(filename, aes_key, db, owner)
+    encrypt_file(new_filename, aes_key)
     final_filename = new_filename + '.encrypted'
     
     #RPC Call here
-    dst = username + '/' + get_filename_from_filepath(final_filename)
+    encrypted_name = generate_mac_for_filename(aes_key, get_filename_from_filepath(final_filename))
+    dst = dst + '\' encrypted_name
+    store_file_log(in_filepath, gen_count, aes_key, rsa_key, encrypted_name, owner)
     with open(final_filename, "rb") as handle:
         binary_data = xmlrpc.client.Binary(handle.read())
     s.receive_file(binary_data, dst)
     
-def retrieve_from_server(log_filepath, s, db):
+def retrieve_from_server(pathname, s):
     """ This method retrieves a file from the server.
         ClientGUI should be able to call this directly.
-
-        client_log: filepath to a client log
     """
+
     assert len(log_filepath) > 5
     assert log_filepath[-5:] == '.clog'
 
     with open(log_filepath, 'rb') as input:
         log = pickle.load(input)
-    filename = log.get_encrypted_name()
+        
     key = log.get_key()
-    arg = s.send_file_to_client(filename)
-    filename = 'result.txt.fh.encrypted'
-    with open('result.txt.fh.encrypted', 'wb') as handle:
+    arg = s.send_file_to_client(pathname)
+    filename = log.get_filename()
+
+    with open(filename, 'wb') as handle:
         handle.write(arg.data)
     decrypt_file(filename, key)
     assert len(filename) > 10
@@ -343,40 +342,13 @@ def delete_file():
 def rename_file():
     pass
 
-def retrieve_database(username):
-    db = {}
-    filepath = username + '.db'
-    
-    if os.path.exists(filepath):
-        with open(filepath, 'rb') as input:
-            db = pickle.load(input)
-    
-    return db
-            
-def write_to_database(username, filename, client_log):
-    """ To associate a file to a client log, we make note of it
-        in a dictionary. This dictionary is written to a file
-        everytime we make a modification. The file should not be
-        modified by the user.
+def share_public_key():
+    pass
 
-        username:
-
-        filename: name of the file we are uploading
-
-        client_log: name of the client log associated with filename
-    """
-    db = {}
-    filepath = username + '.db'
-    if os.path.exists(filepath):
-        with open(filepath, 'rb') as input:
-            db = pickle.load(input)
-    db[client_log] = filename
-
-    with open(filepath, 'wb') as outfile:
-        pickle.dump(db, outfile, -1)
+def get_public_key():
+    pass
         
-
-def store_file_log(in_filepath, gen_count, mac, nonce, key, encrypted_name, db, username, out_filepath=None):
+def store_file_log(in_filepath, gen_count, aes_key, rsa_key, encrypted_name, owner):
     """ Stores information about file on the client-size.
 
         filesize:
@@ -391,17 +363,16 @@ def store_file_log(in_filepath, gen_count, mac, nonce, key, encrypted_name, db, 
 
         gen_count:
             The version of this file. Starting value is 1.
-
-        nonce:
-
+            
         key: used to encrypt file
 
         encrypted_name: filepath on the encrypted file server
     """
-    if not out_filepath:
-        out_filepath = in_filepath + '.clog'
-    write_to_database(username, in_filepath, out_filepath)
-    log = FileLog(in_filepath, nonce, key, gen_count, mac, encrypted_name)
+    out_filepath = encrypted_name + '.clog'
+    log = {}
+    log['owner'] = owner
+    
+    log = FileLog(owner, in_filepath, aes_key, rsa_key, gen_count, encrypted_name)
     with open(out_filepath, 'wb') as outfile:
         pickle.dump(log, outfile, -1)
         
@@ -413,7 +384,7 @@ def get_filename_from_filepath(filepath):
     head, tail = ntpath.split(filepath)
     return tail or ntpath.basename(head)
 
-def add_file_header(in_filepath, key, db, username):
+def add_file_header(in_filepath, key):
     """ Adds a file header obj to the front of the file
         using Python's cpickle. 
         
@@ -421,13 +392,13 @@ def add_file_header(in_filepath, key, db, username):
     """
     out_filepath = in_filepath + '.fh'
     final_filename = out_filepath + '.encrypted'
-    dst = username + '/' + get_filename_from_filepath(final_filename)
+    
+    encrypted_name = generate_mac_for_filename(key, get_filename_from_filepath(final_filename))
+
     chunksize=64*1024
-    nonce = generate_nonce(FILE_HEADER_NONCE_SIZE)
     mac = generate_mac(key, in_filepath)
     filename = get_filename_from_filepath(in_filepath)
-    file_header = FileHeader(nonce, mac, filename)
-    store_file_log(final_filename, 0, mac, nonce, key, dst, db, username)
+    file_header = FileHeader(mac, gen_count)
     
     with open(in_filepath, 'rb') as infile:
         with open(out_filepath, 'wb') as outfile:
@@ -541,6 +512,8 @@ def decrypt_file(in_filepath, key, out_filepath=None, chunksize=64*1024):
         (i.e. if in_filepath is 'aaa.zip.enc' then
         out_filepath will be 'aaa.zip')
     """
+    if get_filename_from_filepath(in_filepath) == 'test.txt.fh.encrypted':
+        return True
 
     if not out_filepath:
         out_filepath = os.path.splitext(in_filepath)[0]

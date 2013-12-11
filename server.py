@@ -1,4 +1,5 @@
 import os
+import auth
 import socket
 import socketserver
 import ssl
@@ -97,34 +98,28 @@ def executeRpcServer():
     # Register an instance; all the methods of the instance are
     # published as XML-RPC methods (in this case, just 'div').
     class MyFuncs:
-        """
-        functions related to authentication and registration
-        """
         def login(self, username, password):
+            if auth.login(username, password) == 'None':
+                return 'fail'
+            else:
+                return 'ok'
+
+            """
             if userPassDict[username] == password:
                 return "ok"
             else:
                 return "fail"
+            """
 
-        """
-        functions related to filesystem navigation
-        """
         def echo(self, arg):
             return arg
 
         def ls(self, username, password, path):
             return os.listdir(ROOTDIR + path)
 
-        def mkdir(self, username, password, path):
-            try:
-                os.makedirs(ROOTDIR + "/" + username+ "/" + path)
-                return True
-            except OSError as exc:
-                return False
- 
 
         def receive_file(self, arg, dst):
-            with open(dst, "wb") as handle:
+            with open(ROOTDIR + dst, "wb") as handle:
                 handle.write(arg.data)
                 return True
 
@@ -133,17 +128,42 @@ def executeRpcServer():
                 return xmlrpc.client.Binary(handle.read())
 
         def register(self, username, password):
+            token = auth.register(username, password)
+            if token == 'None':
+                return 'fail'
+            else:
+                return 'ok'
             if username in userPassDict:
                 return "fail"
+            """
             else:
                 userPassDict[username] = password
+                try:
+                    os.makedirs(ROOTDIR + "/" + username+ "/")
+                except OSError as exc:
+                    return False
                 return "ok"
+            """
 
 
+        """
+        private methods not exposed through the shell
+        """
 
+
+        """
+        unimplemented functions
+        """
         def rm(self, path):
             pass
 
+        def mkdir(self, username, password, path):
+            try:
+                os.makedirs(ROOTDIR + "/" + username+ "/" + path)
+                return True
+            except OSError as exc:
+                return False
+ 
         
         
         #    For this test pickle function I am assuming the pickled object is just a list

@@ -28,6 +28,10 @@ class Client():
         self.password = None
         self.wd = None
 
+    """
+    The following functions are exposed via the shell. They pertain mainly to filesystem navigation and user registration / authentication.
+    """
+
     def echo(self, arg):
         try:
             print(s.echo(arg))
@@ -35,13 +39,16 @@ class Client():
             print("echo failed")
 
     def login(self, uname, passwd):
-        if s.login(uname, passwd) == 'ok':
-            self.username = uname
-            self.password = passwd
-            self.wd = '/' + uname + "/"
-            print("successfully logged in as " + self.username)
-        else:
-            print("login unsuccessful")
+        try:
+            if s.login(uname, passwd) == 'ok':
+                self.username = uname
+                self.password = passwd
+                self.wd = '/' + uname + "/"
+                print("successfully logged in as " + self.username)
+            else:
+                print("login unsuccessful")
+        except:
+            print("Login as " + uname + " failed")
 
     def logout(self):
         name = self.username
@@ -88,6 +95,22 @@ class Client():
 
 
     """
+    Private methods not exposed through the shell
+    """
+    def xfer(self, filename, dst):
+        try:
+            with open(filename, "rb") as handle:
+                binary_data = xmlrpc.client.Binary(handle.read())
+            s.receive_file(binary_data, dst + '/' + os.path.basename(filename))
+        except:
+            print("File upload failed")
+
+    """
+    cryptographic functions
+    """
+
+
+    """
     unimplemented functions
     """
 
@@ -117,17 +140,11 @@ def set_proxy(proxy):
     s = xmlrpc.client.ServerProxy(proxy)
     print("s set to " + proxy)
 
-
-
-
-
 def rm(path):
     try:
         s.rm(c.username, c.password, path)
     except xmlrpc.client.ProtocolError as err:
         print("invalid credentials")
-
-
 
 def xfer(filename, dst):
     key = generate_aes_key()

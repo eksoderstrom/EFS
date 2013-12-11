@@ -6,11 +6,6 @@ class Shell(cmd.Cmd):
     prompt = ">> "
     c = Client()
 
-    def do_xfer(self, line):
-        p = line.split()
-        if len(p) != 2:
-            print("Usage: xfer source dst")
-        client.xfer(p[0], p[1])
 
     def do_echo(self, line):
         self.c.echo(line)
@@ -95,6 +90,16 @@ class Shell(cmd.Cmd):
 
     def do_EOF(self, line):
         return True
+
+    """
+    The following methods should be available for testing only, and should be removed for the final product.
+    """
+    def do_xfer(self, line):
+        p = line.split()
+        if len(p) != 2:
+            print("Usage: xfer source dst")
+        else:
+            self.c.xfer(p[0], p[1])
 
 if __name__ == '__main__':
     Shell().cmdloop("Encrypted File System commandline interface. Use 'help' to get a listing of available shell commands")

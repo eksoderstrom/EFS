@@ -5,20 +5,15 @@
 # written to the file
 #########################################################################
 class DirectoryLog():
-    def __init__(self, num_files):
+    def __init__(self, files=[]):
         """ Keeps track of the number of files in the
         directory.
         """
-        self.num_files = num_files
+        self.files = files
 
-    def get_num_files(self):
-        return self.num_files
+    def get_files(self):
+        return self.files
 
-    def inc_num_files(self):
-        self.num_files = self.num_files + 1
-
-    def dec_num_files(self):
-        self.num_files = self.num_files - 1
 
 ##########################################################################
 # Client Log
@@ -43,6 +38,7 @@ class FileLog():
         self.encrypted_name = encrypted_name
         self.owner = owner
         self.rsa_key = rsa_key
+        self.shared_users = {}
 
     def get_owner(self):
         return self.owner

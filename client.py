@@ -262,11 +262,9 @@ def create_file(owner, filename, dst, s, db):
         binary_data = xmlrpc.client.Binary(handle.read())
     s.receive_file(binary_data, dst)
     
-def retrieve_from_server(log_filepath, s, db):
+def retrieve_from_server(pathname, s):
     """ This method retrieves a file from the server.
         ClientGUI should be able to call this directly.
-
-        client_log: filepath to a client log
     """
 
     assert len(log_filepath) > 5
@@ -274,9 +272,9 @@ def retrieve_from_server(log_filepath, s, db):
 
     with open(log_filepath, 'rb') as input:
         log = pickle.load(input)
-    filename = log.get_encrypted_name()
+        
     key = log.get_key()
-    arg = s.send_file_to_client(filename)
+    arg = s.send_file_to_client(pathname)
     filename = log.get_filename()
 
     with open(filename, 'wb') as handle:

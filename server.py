@@ -12,7 +12,7 @@ except ImportError:
 
 KEYFILE='privatekey.pem'    # Replace with your PEM formatted key file
 CERTFILE='cert.pem'  # Replace with your PEM formatted certificate file
-ROOTDIR='/Users/eks/server'
+ROOTDIR='/Users/eks/EFS/server/'
 
 userPassDict = {"eric":"e"}
 
@@ -31,12 +31,16 @@ class SimpleXMLRPCServerTLS(SimpleXMLRPCServer):
                 # first, call the original implementation which returns
                 # True if all OK so far
                 if SimpleXMLRPCRequestHandler.parse_request(self):
+                    print("parsing")
                     # next we authenticate
+                    return True
+                    """
                     if self.authenticate(self.headers):
                         return True
                     else:
+                    """
                         # if authentication fails, tell the client
-                        self.send_error(401, 'Authentication failed')
+                    self.send_error(401, 'Authentication failed')
                 return False
             
             def authenticate(self, headers):
@@ -89,20 +93,14 @@ def executeRpcServer():
     server = SimpleXMLRPCServerTLS(("localhost", 443), requestHandler=RequestHandler)
     server.register_introspection_functions()
 
-    # Register pow() function; this will use the value of
-    # pow.__name__ as the name, which is just 'pow'.
-    server.register_function(pow)
-
-    # Register a function under a different name
-    def adder_function(x,y):
-        return x + y
-    server.register_function(adder_function, 'add')
-
     # Register an instance; all the methods of the instance are
     # published as XML-RPC methods (in this case, just 'div').
     class MyFuncs:
         def echo(self, arg):
             return arg
+
+        def ls(self, username, password, path):
+            return os.listdir(ROOTDIR + path)
 
         def mkdir(self, username, password, path):
             try:
@@ -110,6 +108,7 @@ def executeRpcServer():
                 return True
             except OSError as exc:
                 return False
+ 
 
         def receive_file(self, arg, dst):
             with open(dst, "wb") as handle:
@@ -120,13 +119,22 @@ def executeRpcServer():
             with open(path, "rb") as handle:
                 return xmlrpc.client.Binary(handle.read())
 
+        def register(self, username, password):
+            return 'ok'
+            """
+            if username in userPassDict:
+                return "fail"
+            else:
+                userPassDict[username] = password
+                return "ok"
+            """
+
+
 
         def rm(self, path):
             pass
+
         
-        def enterUID(self, uid):
-            print (uid)
-            return "Got uid " + uid
         
         #    For this test pickle function I am assuming the pickled object is just a list
         def uploadPickle(self, pickleStringBinary):

@@ -12,7 +12,7 @@ from client_classes import FileHeader
 from client_classes import FileLog
 from client_classes import DirectoryLog
 
-s = xmlrpc.client.ServerProxy('http://localhost:443')
+s = xmlrpc.client.ServerProxy('https://localhost:443')
 
 #Macros
 AES_KEY_SIZE = 32
@@ -20,10 +20,14 @@ RSA_KEY_SIZE = 2048
 FILE_HEADER_NONCE_SIZE = 32
 
 class Client():
-    def __init__(self, uname, passwd):
+    def __init__(self):
+        self.s = xmlrpc.client.ServerProxy('http://localhost:443')
         self.loggedin = False
-        self.username = uname
-        self.password = passwd
+        self.username = None
+        self.password = None
+        self.cd = None
+
+c = Client()
 
 #########################################################
 # Shell 
@@ -36,12 +40,14 @@ def set_proxy(proxy):
 
 def login(uname, passwd):
     global c
-    c = Client(uname, passwd)
+    c.username = uname
+    c.password = passwd
     set_proxy('https://' + uname + ':' + passwd + '@localhost:443')
     try:
         s.echo("login")
     except xmlrpc.client.ProtocolError as err:
         print("invalid credentials, please login")
+    c.cd = uname + "/"
     print("successfully logged in as " + c.username)
 
 
@@ -52,13 +58,28 @@ def echo(arg):
         print("invalid credentials")
 
 def mkdir(path):
-    s.mkdir(c.username, c.password, path)
+    if path[0] == '/':
+        s.mkdir(c.username, c.password, path)
+    else:
+        s.mkdir(c.username, c.password, c.cd + path)
 
 def rm(path):
     try:
         s.rm(c.username, c.password, path)
     except xmlrpc.client.ProtocolError as err:
         print("invalid credentials")
+
+def cd(path):
+    if path[0] != '/':
+        try:
+            if path in s.ls(c.username, c.password, c.cd):
+                global c
+                c.cd = c.cd + path
+        except:
+           print("invalid directory name")
+    else:
+        pass
+
 
 def xfer(filename, dst):
     key = generate_aes_key()
@@ -73,6 +94,26 @@ def get_file(path, dst):
     arg = s.send_file_to_client(path)
     with open(dst, 'wb') as handle:
         handle.write(arg.data)
+    
+
+def ls(path='None'):
+    if path=='None':
+        global c
+        path = c.cd
+    try:
+        print(s.ls(c.username, c.password, path))
+    except:
+        print('no such file or directory')
+
+def pwd():
+    global c
+    print(c.cd)
+
+def register(username, password):
+    if s.register(username, password) == 'ok':
+        print("registration success")
+    else:
+        print("registration failed, choose another username")
     
 
 def mv(source, dst):

@@ -45,7 +45,36 @@ class Shell(cmd.Cmd):
             print("Usage: login username password")
         client.login(p[0], p[1])
 
+    def do_ls(self, line):
+        p = line.split()
+        if len(p) == 1:
+            client.ls(p[0])
+        elif len(p) == 0:
+            client.ls()
+        else:
+            print("Usage: ls path")
     
+    def do_pwd(self, line):
+        p = line.split()
+        if len(p) != 0:
+            print("Usage: pwd")
+        else:
+            client.pwd()
+
+    def do_cd(self, line):
+        p = line.split()
+        if len(p) != 1:
+            print("Usage: cd directory")
+        else:
+            client.cd(p[0])
+
+    def do_register(self, line):
+        p = line.split()
+        if len(p) != 2:
+            print("Usage: register username password")
+        else:
+            client.register(p[0], p[1])
+
     def do_EOF(self, line):
         return True
 

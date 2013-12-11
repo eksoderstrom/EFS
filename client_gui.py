@@ -1,5 +1,6 @@
 #Note: tkinter import statement works for Python 3 ONLY
 from tkinter import *
+from tkinter import filedialog
 import client
 import os, xmlrpc.client
 
@@ -22,7 +23,7 @@ class ClientGUI(Frame):
     def __init__(self, parent=None):
         Frame.__init__(self, parent)
         self.parent = parent
-        self.parent.title('Client v1.0')
+        self.parent.title('Camel Client (CC v1.0)')
         self.initialize()
 
     def login_msg(self, parent):
@@ -62,6 +63,50 @@ class ClientGUI(Frame):
         okay.grid(row=1)
         cancel = Button(self.rsa_msg, text="Ignore Warning",command=self.rsa_msg.destroy)
         cancel.grid(row=1,column=2,sticky=W)
+
+    def verify_fail(self):
+        verify_fail = Toplevel()
+        verify_fail.title("Verify Warning")
+        warning = Label(verify_fail, text="Cannot verify this file. It has been corrupted. Download new copy?")
+        warning.grid(row=0)        
+        okay = Button(verify_fail, text="Download",command=self.generate_rsa_key_pair)
+        okay.grid(row=1)
+        cancel = Button(verify_fail, text="Cancel",command=verify_fail.destroy)
+        cancel.grid(row=1,column=2,sticky=W)
+        
+    def ask_share_info(self):
+        self.share = Toplevel()
+        self.share.title("Share")
+
+        msg = Label(self.share, text="Requires username of person and client log of file.")
+        msg.grid(row=0)
+        self.other_username = StringVar()
+        usernamelabel = Label(self.share, text="Username: ")
+        usernamelabel.grid(row=1)
+        usernametext = Entry(self.share, textvariable=self.other_username)
+        usernametext.grid(row=1,column=1)
+        self.other_pubkey = StringVar()
+        pubkeylabel = Label(self.share, text="Public Key: ")
+        pubkeylabel.grid(row=2)
+        pubkeytext = Entry(self.share, textvariable=self.other_pubkey)
+        pubkeytext.grid(row=2,column=1)
+        retrievefilebutton = Button(self.share, text="Browse...", command=self.fileRetrieve)
+        retrievefilebutton.grid(row=2,column=2)        
+        self.share_file = StringVar()
+        filelabel = Label(self.share, text="File: ")
+        filelabel.grid(row=3)
+        filetext = Entry(self.share, textvariable=self.share_file)
+        filetext.grid(row=3,column=1)
+        retrievefilebutton = Button(self.share, text="Browse...", command=self.fileRetrieve)
+        retrievefilebutton.grid(row=3,column=2)
+        readpermission = IntVar()
+        writepermission = IntVar()
+        readbutton = Checkbutton(self.share, text="Read", variable=readpermission)
+        readbutton.grid(row=4)
+        writebutton = Checkbutton(self.share, text="Write", variable=writepermission)
+        writebutton.grid(row=4, column=1)
+        sendfilebutton = Button(self.share, text="Share", command=self.shareFile)
+        sendfilebutton.grid(row=5, sticky=W+E+N+S, padx=5,pady=5,columnspan=2)
         
     def initialize(self):
 
@@ -76,6 +121,7 @@ class ClientGUI(Frame):
         optMenu.add_command(label="Import RSA Keys...", command=self.onExit)
         menubar.add_cascade(label="Options", menu=optMenu)
         helpMenu = Menu(menubar)
+        helpMenu.add_command(label="About", command=self.onExit)
         menubar.add_cascade(label="Help", menu=helpMenu)
 
         #Keys
@@ -91,10 +137,14 @@ class ClientGUI(Frame):
         self.aes_key_text = StringVar()
         readkeytextfield = Entry(self.parent, state='readonly',textvariable=self.aes_key_text)
         readkeytextfield.grid(row=1, column=1)
-        readwritekeylabel = Label(self.parent, text="EXTRA FEATURE IGNORE!!!:")
+        self.readwrite_text = StringVar()
+        self.readwrite_text.set("Not Generated")
+        readwritekeylabel = Label(self.parent, text="R/W (Owner):")
         readwritekeylabel.grid(row=2)
-        readwritekeytextfield = Entry(self.parent, state='readonly')
+        readwritekeytextfield = Entry(self.parent, state='readonly', textvariable=self.readwrite_text)
         readwritekeytextfield.grid(row=2, column=1)
+        readwritebutton = Button(self.parent, text="Generate", command=self.generate_rsa_file_key)
+        readwritebutton.grid(row=2,column=2)
         
         #Upload and Retrival 
         self.uploadfilecontent= StringVar()
@@ -102,7 +152,7 @@ class ClientGUI(Frame):
         uploadfilelabel.grid(row=3)
         self.uploadfiletextfield = Entry(self.parent, textvariable=self.uploadfilecontent)
         self.uploadfiletextfield.grid(row=3,column=1)
-        uploadfilebutton = Button(self.parent, text="Open...", command=self.getfilename)
+        uploadfilebutton = Button(self.parent, text="Browse...", command=self.getfilename)
         uploadfilebutton.grid(row=3,column=2)
         sendfilebutton = Button(self.parent, text="Submit", command=self.fileUpload)
         sendfilebutton.grid(row=3,column=3, sticky=W+E+N+S, padx=5,pady=5,columnspan=2)
@@ -112,15 +162,17 @@ class ClientGUI(Frame):
         uploaddirlabel.grid(row=4)
         uploaddirtextfield = Entry(self.parent, textvariable=self.uploaddircontent)
         uploaddirtextfield.grid(row=4,column=1)
-        uploaddirbutton = Button(self.parent, text="Open...", command=self.dirUpload)
+        uploaddirbutton = Button(self.parent, text="Browse...", command=self.dirUpload)
         uploaddirbutton.grid(row=4,column=2)
-
+        senddirbutton = Button(self.parent, text="Submit", command=self.fileUpload)
+        senddirbutton.grid(row=4,column=3, sticky=W+E+N+S, padx=5,pady=5,columnspan=2)
+        
         self.retrievefilecontent = StringVar()
         retrievefilelabel = Label(self.parent, text="Retrieve File:")
         retrievefilelabel.grid(row=5)
         retrivefiletextfield = Entry(self.parent, textvariable=self.retrievefilecontent)
         retrivefiletextfield.grid(row=5,column=1)
-        retrievefilebutton = Button(self.parent, text="Open...", command=self.fileRetrieve)
+        retrievefilebutton = Button(self.parent, text="Browse...", command=self.fileRetrieve)
         retrievefilebutton.grid(row=5,column=2)
         retrievefilebutton = Button(self.parent, text="Retrieve", command=self.fileRetrieveServer)
         retrievefilebutton.grid(row=5,column=3, sticky=W+E+N+S, padx=5,pady=5,columnspan=2)
@@ -130,8 +182,13 @@ class ClientGUI(Frame):
         retrievedirlabel.grid(row=6)        
         retrivedirtextfield = Entry(self.parent, textvariable=self.retrievedircontent)
         retrivedirtextfield.grid(row=6,column=1)
-        retrievedirbutton = Button(self.parent, text="Open...", command=self.dirRetrieve)
+        retrievedirbutton = Button(self.parent, text="Browse...", command=self.dirRetrieve)
         retrievedirbutton.grid(row=6,column=2)
+        retrievedirbutton = Button(self.parent, text="Retrieve", command=self.fileRetrieveServer)
+        retrievedirbutton.grid(row=6,column=3, sticky=W+E+N+S, padx=5,pady=5,columnspan=2)
+
+        self.sharebutton = Button(self.parent, text="Share", fg="Orange",command=self.share, height=4, width=10)
+        self.sharebutton.grid(row=7)
         
         root.lower()
         self.login_msg(self)
@@ -144,6 +201,19 @@ class ClientGUI(Frame):
         
     def onExit(self):
         self.quit()
+
+    def share(self):
+        self.ask_share_info()
+
+    def shareFile(self):
+        self.shareFile = Toplevel()
+        self.shareFile.title("Share")
+        self.shareFile.geometry('100x100')
+        msg = Label(self.shareFile, text="Not in demo.")
+        msg.grid(row=0)
+        self.share.destroy()
+        msgbutton = Button(self.shareFile, text="Close", command=self.shareFile.destroy)
+        msgbutton.grid(row=1)        
 
     def login(self):
         self.s = xmlrpc.client.ServerProxy('https://' + self.username.get() + ':' + self.password.get() + '@localhost:443')
@@ -163,15 +233,23 @@ class ClientGUI(Frame):
             look at send_to_server in client.py.
         """
         client.send_to_server(self.username.get(), self.uploadfilecontent.get(), self.aes_key, self.s, self.dict)
-        """msg = Label(rsa, text="File Successfully Uploaded to Server")
+        success = Toplevel()
+        msg = Label(success, text="File Successfully Uploaded to Server")
         msg.grid(row=0)
-        msgbutton = Button(rsa, text="Thanks", command=rsa.destroy)
+        msgbutton = Button(success, text="Thanks", command=success.destroy)
         msgbutton.grid(row=1)
-        """
+        
         
     def fileRetrieveServer(self):
-        client.retrieve_from_server(self.retrievefilecontent.get(), self.s, self.dict)
-
+        verify = client.retrieve_from_server(self.retrievefilecontent.get(), self.s, self.dict)
+        if verify == False:
+            self.verify_fail()
+        else:
+            success = Toplevel()
+            msg = Label(success, text="File Successfully Retrieved From Server")
+            msg.grid(row=0)
+            msgbutton = Button(success, text="Thanks", command=success.destroy)
+            msgbutton.grid(row=1)
     def dirUpload(self):
         filename = filedialog.askdirectory()
         self.uploaddircontent.set(filename)
@@ -228,6 +306,10 @@ class ClientGUI(Frame):
         msgbutton = Button(rsa, text="Thanks", command=rsa.destroy)
         msgbutton.grid(row=1)
         self.rsa_msg.destroy()
+
+    def generate_rsa_file_key(self):
+        self.readwrite_text.set("Generated")
+        self.readwritekey = client.generate_rsa_key(RSA_KEY_SIZE)
         
 if __name__ == "__main__":
     root = Tk()

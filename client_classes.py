@@ -17,6 +17,9 @@ class DirectoryLog():
     def inc_num_files(self):
         self.num_files = self.num_files + 1
 
+    def dec_num_files(self):
+        self.num_files = self.num_files - 1
+
 ##########################################################################
 # Client Log
 # This class is used to store data abaout individual files on the client.
@@ -27,27 +30,28 @@ class DirectoryLog():
 # file)
 ##########################################################################
 class FileLog():
-    def __init__(self, filename, nonce, key, gen_count, mac, encrypted_name):
+    def __init__(self, owner, filename, aes_key, rsa_key, gen_count, encrypted_name):
         """ The parameters used here are for
             retrieval and identification
             purposes.
-
-            nonce: random number in bytes
-            mac: used to verify the file
+            
             filename:
         """
-        self.nonce = nonce
-        self.key = key
+        self.aes_key = aes_key
         self.filename = filename
         self.gen_count = gen_count
         self.encrypted_name = encrypted_name
-        self.mac = mac
+        self.owner = owner
+        self.rsa_key = rsa_key
 
-    def get_nonce(self):
-        return self.nonce
+    def get_owner(self):
+        return self.owner
 
-    def get_key(self):
-        return self.key
+    def get_aes_key(self):
+        return self.aes_key
+
+    def get_rsa_key(self):
+        return self.rsa_key
 
     def get_gen_count(self):
         return self.gen_count
@@ -58,16 +62,13 @@ class FileLog():
     def get_encrypted_name(self):
         return self.encrypted_name
 
-    def get_mac(self):
-        return self.mac
-
 ##########################################################################
 # File Header 
 # This class is used to keep track of certain parameters and is inserted
 # at the front of the file we want to encrypt.
 ##########################################################################
 class FileHeader():
-    def __init__(self, nonce, mac, filename, gen_count):
+    def __init__(self, signature, gen_count):
         """ The parameters stored in the file header
             are used for security and identification
             purposes.
@@ -76,19 +77,11 @@ class FileHeader():
             mac: used to verify the file
             filename:
         """
-        self.nonce = nonce
-        self.mac = mac
-        self.filename = filename
-        self.gen_count = gen_count
-
-    def get_nonce(self):
-        return self.nonce
-
-    def get_mac(self):
-        return self.mac
-
-    def get_filename(self):
-        return self.filename
+        self.signature
+        self.gen_count
 
     def get_gen_count(self):
         return self.gen_count
+
+    def get_signature(self):
+        return self.signature

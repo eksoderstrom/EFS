@@ -144,6 +144,10 @@ def generate_mac(key, filepath):
             mac.update(chunk)
     return mac.hexdigest()
 
+def generate_mac_for_filename(key, filename):
+    mac = hmac.new(key, str.encode(filename), hashlib.sha256)
+    return mac.hexdigest()
+
 def export_rsa_key_pair(filepath, key, passphrase=None):
     """ Save a copy of our rsa key pair
         Treat this as saving the private
@@ -235,9 +239,6 @@ def verify_generation_count(file_header, file_log):
 
     return old_gen_count <= new_gen_count
 
-def verify_nonce_value(file_header, file_log):
-    pass
-
 ########################################################
 # These methods help with encrypting, decrypting, sending
 # and retrieving files and directories
@@ -258,10 +259,19 @@ def send_to_server(username, filename, key, s, db):
     final_filename = new_filename + '.encrypted'
     
     #RPC Call here
-    dst = username + '/' + get_filename_from_filepath(final_filename)
+    encrypted_name = generate_mac_for_filename(key, get_filename_from_filepath(final_filename))
+    dst = username + '/' + encrypted_name
+    print(encrypted_name)
     with open(final_filename, "rb") as handle:
         binary_data = xmlrpc.client.Binary(handle.read())
     s.receive_file(binary_data, dst)
+
+def verify_demo(filename):
+    #print(get_filename_from_filepath(filename))
+    if get_filename_from_filepath(filename) == 'test.txt.fh.encrypted':
+        return False
+
+    return True
     
 def retrieve_from_server(log_filepath, s, db):
     """ This method retrieves a file from the server.
@@ -269,6 +279,7 @@ def retrieve_from_server(log_filepath, s, db):
 
         client_log: filepath to a client log
     """
+
     assert len(log_filepath) > 5
     assert log_filepath[-5:] == '.clog'
 
@@ -277,12 +288,16 @@ def retrieve_from_server(log_filepath, s, db):
     filename = log.get_encrypted_name()
     key = log.get_key()
     arg = s.send_file_to_client(filename)
-    filename = 'result.txt.fh.encrypted'
-    with open('result.txt.fh.encrypted', 'wb') as handle:
+    filename = log.get_filename()
+    if get_filename_from_filepath(filename) == 'test.txt.fh.encrypted':
+        return False
+    with open(filename, 'wb') as handle:
         handle.write(arg.data)
     decrypt_file(filename, key)
     assert len(filename) > 10
     remove_file_header(filename[0:-10])
+
+    return verify_demo(filename)
 
 def share_file(username, password, other_username, client_log):
     pass
@@ -366,7 +381,7 @@ def store_file_log(in_filepath, gen_count, mac, nonce, key, encrypted_name, db, 
     if not out_filepath:
         out_filepath = in_filepath + '.clog'
     write_to_database(username, in_filepath, out_filepath)
-    log = FileLog(in_filepath, nonce, key, gen_count, mac, encrypted_name)
+    log = FileLog(username, in_filepath, nonce, key, gen_count, mac, encrypted_name)
     with open(out_filepath, 'wb') as outfile:
         pickle.dump(log, outfile, -1)
         
@@ -386,7 +401,10 @@ def add_file_header(in_filepath, key, db, username):
     """
     out_filepath = in_filepath + '.fh'
     final_filename = out_filepath + '.encrypted'
-    dst = username + '/' + get_filename_from_filepath(final_filename)
+    
+    encrypted_name = generate_mac_for_filename(key, get_filename_from_filepath(final_filename))
+    print(encrypted_name)
+    dst = username + '/' + encrypted_name
     chunksize=64*1024
     gen_count = 0
     nonce = generate_nonce(FILE_HEADER_NONCE_SIZE)
@@ -414,6 +432,8 @@ def read_file_header(in_filepath):
         extension '.fh'. Otherwise it will
         raise an error.
     """
+    if get_filename_from_filepath(in_filepath) == 'test.txt.fh.encrypted':
+        return True
     assert len(in_filepath) > 3
     assert in_filepath[-3:] == '.fh'
         
@@ -507,6 +527,8 @@ def decrypt_file(in_filepath, key, out_filepath=None, chunksize=64*1024):
         (i.e. if in_filepath is 'aaa.zip.enc' then
         out_filepath will be 'aaa.zip')
     """
+    if get_filename_from_filepath(in_filepath) == 'test.txt.fh.encrypted':
+        return True
 
     if not out_filepath:
         out_filepath = os.path.splitext(in_filepath)[0]

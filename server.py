@@ -14,7 +14,8 @@ KEYFILE='privatekey.pem'    # Replace with your PEM formatted key file
 CERTFILE='cert.pem'  # Replace with your PEM formatted certificate file
 ROOTDIR='/Users/eks/server'
 
-userPassDict = {"eric":"e"}
+userPassDict = {"eric":"e",
+                "tiffany":"t"}
 
 permissionsDict = {}
     

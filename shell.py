@@ -7,6 +7,17 @@ class Shell(cmd.Cmd):
     c = Client()
 
 
+    """
+    share read access with recipient
+    """
+    def do_sr(self, line):
+        p = line.split()
+        if len(p) != 2:
+            print("Usage: sr path recipient")
+        else:
+            self.c.share_read(p[0], p[1])
+        
+
     def do_echo(self, line):
         self.c.echo(line)
 
@@ -17,7 +28,7 @@ class Shell(cmd.Cmd):
         p = line.split()
         if len(p) != 2:
             print("Usage: get src dst")
-        client.get_file(p[0], p[1])
+        self.c.get_file(p[0], p[1])
 
     def do_mv(self, line):
         p = line.split()

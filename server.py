@@ -33,7 +33,6 @@ class SimpleXMLRPCServerTLS(SimpleXMLRPCServer):
                 # first, call the original implementation which returns
                 # True if all OK so far
                 if SimpleXMLRPCRequestHandler.parse_request(self):
-                    print("parsing")
                     # next we authenticate
                     return True
                     """
@@ -99,10 +98,10 @@ def executeRpcServer():
     # published as XML-RPC methods (in this case, just 'div').
     class MyFuncs:
         def login(self, username, password):
-            if auth.login(username, password) == 'None':
-                return 'fail'
-            else:
+            if auth.login(username, password):
                 return 'ok'
+            else:
+                return 'fail'
 
             """
             if userPassDict[username] == password:
@@ -118,21 +117,40 @@ def executeRpcServer():
             return os.listdir(ROOTDIR + path)
 
 
-        def receive_file(self, arg, dst):
+        def receive_file(self, username, password, arg, dst):
             with open(ROOTDIR + dst, "wb") as handle:
-                handle.write(arg.data)
-                return True
+                if handle:
+                    handle.write(arg.data)
+                    auth.add_file(dst, username)
+                    return True
 
-        def send_file_to_client(self, path):
-            with open(path, "rb") as handle:
-                return xmlrpc.client.Binary(handle.read())
+        def send_file_to_client(self, username, password, path):
+            if auth.authenticate(username, password):
+                if auth.has_read(username, path):
+                    with open(ROOTDIR + path, "rb") as handle:
+                        return xmlrpc.client.Binary(handle.read())
+                else:
+                    return False
+
+        def share_read(self, username, password, path, recipient):
+            if auth.authenticate(username, password):
+                if auth.isOwner(username, path):
+                    auth.add_read(recipient, path)
+                    return True
+                return False
+                
 
         def register(self, username, password):
-            token = auth.register(username, password)
-            if token == 'None':
-                return 'fail'
-            else:
+            if auth.register(username, password):
+                try:
+                    os.makedirs(ROOTDIR + "/" + username+ "/")
+                    auth.add_file(ROOTDIR + '/' + username + '/', username)
+                except OSError as exc:
+                    return False
                 return 'ok'
+            else:
+                return 'fail'
+
             if username in userPassDict:
                 return "fail"
             """

@@ -376,7 +376,7 @@ def create_file(owner, filename, dst, s, db):
     #RPC Call here
     encrypted_name = generate_mac_for_filename(aes_key, get_filename_from_filepath(final_filename))
     dst = dst + '/' + encrypted_name
-    store_file_log(in_filepath, gen_count, aes_key, rsa_key, encrypted_name, owner)
+    #store_file_log(owner, fek, fsk_dsa_key, timestamp, filename, encrypted_name)
     with open(final_filename, "rb") as handle:
         binary_data = xmlrpc.client.Binary(handle.read())
     
@@ -425,7 +425,7 @@ def share_public_key():
 def get_public_key():
     pass
         
-def store_file_log(in_filepath, gen_count, aes_key, rsa_key, encrypted_name, owner):
+def store_file_log(owner_username, fek, fsk_dsa_key, timestamp, filename, encrypted_filename):
     """ Stores information about file on the client-size.
 
         filesize:
@@ -446,10 +446,10 @@ def store_file_log(in_filepath, gen_count, aes_key, rsa_key, encrypted_name, own
         encrypted_name: filepath on the encrypted file server
     """
     out_filepath = encrypted_name + '.clog'
-    log = {}
-    log['owner'] = owner
-    
-    log = FileLog(owner, in_filepath, aes_key, rsa_key, gen_count, encrypted_name)
+
+    owner_block = AccessBlock(owner_username, fek, fsk_dsa_key);
+    log = {'owner':owner_block, 'timestamp':timestamp, 'encrypted_filename':encrypted_filename}
+
     with open(out_filepath, 'wb') as outfile:
         pickle.dump(log, outfile, -1)
         

@@ -81,3 +81,27 @@ class FileHeader():
 
     def get_signature(self):
         return self.signature
+
+#############################################################################
+# AccessBlock
+# This class encapsulates permissions for a user.
+# Presence only of File Encryption Key points to read-only permission.
+# If File Signature Key (private half) is also included, user has read-write
+# permission.
+#############################################################################
+
+class AccessBlock():
+    
+    def __init__(self, username, fek, fsk=None):
+        self.username = username
+        self.fek = fek
+        self.fsk = fsk
+
+    def get_username(self):
+        return self.username
+
+    def get_file_encryption_key(self):
+        return self.fek
+
+    def get_file_signature_key(self):
+        return self.fsk

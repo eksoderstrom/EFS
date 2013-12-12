@@ -93,6 +93,28 @@ class Client():
     def pwd(self):
         print(self.wd)
 
+    def share_read(self, path, recipient):
+        try:
+            if s.share_read(self.username, self.password, path, recipient):
+                print('successfully shared read access to ' + path + ' with ' + recipient)
+            else:
+                print('failed to share')
+        except:
+            print('connection error')
+            
+
+    def get_file(self, path, dst):
+        try:
+            arg = s.send_file_to_client(self.username, self.password, path)
+            if arg:
+                with open(dst, 'wb+') as handle:
+                    handle.write(arg.data)
+                print('successfully retrieved ' + path)
+            else:
+                print("permission denied")
+        except:
+            print("get file failed")
+
 
     """
     Private methods not exposed through the shell
@@ -101,7 +123,7 @@ class Client():
         try:
             with open(filename, "rb") as handle:
                 binary_data = xmlrpc.client.Binary(handle.read())
-            s.receive_file(binary_data, dst + '/' + os.path.basename(filename))
+            s.receive_file(self.username, self.password, binary_data, dst)
         except:
             print("File upload failed")
 
@@ -156,7 +178,7 @@ def xfer(filename, dst):
     s.receive_file(binary_data, dst)
  
 def get_file(path, dst):
-    arg = s.send_file_to_client(path)
+    arg = s.send_file_to_client(self.username, self.password, path)
     with open(dst, 'wb') as handle:
         handle.write(arg.data)
     

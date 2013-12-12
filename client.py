@@ -2,7 +2,10 @@ import xmlrpc.client, random, struct, os, hashlib, sys, base64
 from Crypto.Cipher import AES
 #RSA imports
 import Crypto.PublicKey.RSA as RSA
+import Crypto.PublicKey.DSA as DSA
 import Crypto.Random.OSRNG.posix as Nonce
+import Crypto.Random.random as SuperRandom
+import Crypto.Hash.SHA256 as SHA256
 #MAC import
 import hmac
 import ntpath
@@ -186,6 +189,32 @@ def generate_nonce(size):
     """
     #return Nonce.new().read(size) -> this cannot be used by windows
     return os.urandom(size)
+def generate_dsa_key(size):
+    """ Generate a fresh, new, DSA key object
+        where size is the size of the key object
+    """
+    key = DSA.generate(size)
+    return key
+
+def sign_with_dsa(aes_key, dsa_key, filepath):
+    """ Sign a file with DSA
+
+        filepath: encrypted data
+    """
+    filehash = SHA256.new()
+    chunksize=64*1024
+    with open(filepath, 'rb') as infile:
+        while True:
+            chunk = infile.read(chunksize)
+            if len(chunk) == 0:
+                break
+            filehash.update(chunk)
+    k = SuperRandom.StrongRandom().randint(1, key.q-1)
+    sig = key.sign(filehash.digest(), k)
+    return sig
+
+def verify_with_dsa(key, filehash, sig):
+    return key.verify(filehash.digest(), sig)
 def generate_rsa_key(size):
     """ Generate a fresh, new RSA key object
     where nonce is the random function and size is
@@ -339,18 +368,17 @@ def create_file(owner, filename, dst, s, db):
         
     """
     aes_key = generate_aes_key()
-    rsa_key = generate_rsa_key(RSA_KEY_SIZE)
-    new_filename = add_file_header(filename, aes_key, db, owner)
-    encrypt_file(new_filename, aes_key)
-    final_filename = new_filename + '.encrypted'
-    
+    dsa_key = generate_dsa_key(1024)
+    encrypt_file(filename, aes_key)
+    new_filename = filename + '.encrypted'
+    final_filename = new_filename + '.fh'
+    add_file_header(new_filename, aes_key, dsa_key)
     #RPC Call here
     encrypted_name = generate_mac_for_filename(aes_key, get_filename_from_filepath(final_filename))
     dst = dst + '/' + encrypted_name
     store_file_log(in_filepath, gen_count, aes_key, rsa_key, encrypted_name, owner)
     with open(final_filename, "rb") as handle:
         binary_data = xmlrpc.client.Binary(handle.read())
-    s.receive_file(binary_data, dst)
     
 def retrieve_from_server(pathname, s):
     """ This method retrieves a file from the server.

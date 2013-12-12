@@ -8,6 +8,7 @@ import Crypto.Random.random as SuperRandom
 import Crypto.Hash.SHA256 as SHA256
 import Crypto.Cipher.PKCS1_OAEP as PKCS1_OAEP
 import Crypto.Random as Random
+import Crypto.Random.random as random
 #MAC import
 import hmac
 import ntpath
@@ -199,6 +200,16 @@ def generate_dsa_key(size):
     key = DSA.generate(size)
     return key
 
+def export_dsa_public(username, key):
+    filepath = username + '.dsapub'
+    with open(filepath, 'wb') as outfile:
+        pickle.dump(key.publickey(), outfile, -1)
+
+def export_dsa(username, key):
+    filepath = username + '.dsa'
+    with open(filepath, 'wb') as outfile:
+        pickle.dump(key, outfile, -1)
+
 def sign_with_dsa(aes_key, dsa_key, filepath):
     """ Sign a file with DSA
 
@@ -388,6 +399,7 @@ def create(owner, filename):
    #     binary_data = xmlrpc.client.Binary(handle.read())
     print("encrypted: " + encrypted_name)
     return encrypted_name
+
 def get(username, filename):
     in_filepath = filename + '.clog'
     with open(in_filepath, 'rb') as input:
@@ -396,35 +408,13 @@ def get(username, filename):
     
     key = RSA.importKey(open(username + '.pri').read())
     cipher = PKCS1_OAEP.new(key, SHA256.new())
-    block.decrypt(cipher)
+    block.decrypt_permission_block(cipher)
     decrypt_file(filename, block.get_file_encryption_key(), filename + '.decrypted')
     fh = read_file_header(filename + '.decrypted')
     remove_file_header(filename + '.decrypted')
     print('get: ' + fh.get_filename())
     print(fh.get_signature())
     os.rename(filename + '.decrypted.rfh', fh.get_filename())
-    
-    
-def retrieve_from_server(pathname, s):
-    """ This method retrieves a file from the server.
-        ClientGUI should be able to call this directly.
-    """
-
-    assert len(log_filepath) > 5
-    assert log_filepath[-5:] == '.clog'
-
-    with open(log_filepath, 'rb') as input:
-        log = pickle.load(input)
-        
-    key = log.get_key()
-    arg = s.send_file_to_client(pathname)
-    filename = log.get_filename()
-
-    with open(filename, 'wb') as handle:
-        handle.write(arg.data)
-    decrypt_file(filename, key)
-    assert len(filename) > 10
-    remove_file_header(filename[0:-10])
 
 def share_file(username, password, other_username, client_log):
     pass
@@ -450,34 +440,7 @@ def share_public_key():
 def get_public_key():
     pass
         
-<<<<<<< HEAD
-def store_log(owner_username, fek, fsk_dsa_key, timestamp, filename, encrypted_name):
-    """ Stores information about file on the client-size.
-
-        filesize:
-            Size of the file.
-
-        in_filepath:
-            Name of the input file
-
-        out_filepath:
-            '<in_filepath>.clog' will always be used
-            unless user specifies a name.
-
-        gen_count:
-            The version of this file. Starting value is 1.
-            
-        key: used to encrypt file
-    """
-    out_filepath = encrypted_name + '.clog'
-    owner_block = AccessBlock(fek, fsk_dsa_key);
-    owner_mek = RSA.importKey(open(owner_username+ '.pub').read())
-    hashfunc = SHA256.new()
-    cipher = PKCS1_OAEP.new(owner_mek, hashfunc)
-    owner_block.encrypt(cipher)
-    log = {'owner':owner_username, owner_username: owner_block, 'timestamp':timestamp, 'encrypted_name': encrypted_name}
-=======
-def store_file_log(username, user_rsa_key, user_dsa_key, file_aes_key, file_dsa_key, timestamp, filename, encrypted_filename):
+def store_log(owner_username, fek, file_dsa_key, timestamp, filename, encrypted_name):
     """ Stores information about the file on the sever-side. Facilitates downloading of 
         associated data file. 
         username:
@@ -498,25 +461,26 @@ def store_file_log(username, user_rsa_key, user_dsa_key, file_aes_key, file_dsa_
             unless user specifies a name.
     """
     out_filepath = encrypted_name + '.clog'
-
-    owner_block = AccessBlock(username, user_rsa_key, user_file_aes_key, file_dsa_key)
-    encrypted_owner_block = owner_block.encrypt_permission_block()  #The username will still be in plaintext
+    owner_block = AccessBlock(fek, file_dsa_key);
+    owner_mek = RSA.importKey(open(owner_username+ '.pub').read())
+    hashfunc = SHA256.new()
+    cipher = PKCS1_OAEP.new(owner_mek, hashfunc)
+    owner_block.encrypt_permission_block(cipher)
+    
 
     file_log_hash = SHA256.new()
-    file_log_hash.update(encrypted_owner_block)
-    file_log_hash.update(file_dsa_key.publickey) #not sure if this is correct way to retrieve public key
-    file_log_hash.update(timestamp)
-    file_log_hash.update(filename)
-
-    #TODO: sign file_log_hash with user_dsa_key. Not sure how to do this yet. 
-    #TODO: what happens to the encrypted_filename?
-
-
-    log = {'owner':owner_hash, 'file_dsa_public': file_dsa_public_hash, 'filename':filename_hash, 'timestamp':timestamp_hash, 'encrypted_filename':encrypted_filename, "log_signature": file_log_hash}
-
->>>>>>> 2594187ae7c44b91074ad34dd1bd4def12539a2a
+    with open(owner_username + '.dsa', 'rb') as input:
+        owner_msk = pickle.load(input)
+    k = random.StrongRandom().randint(1,owner_msk.q-1)
+    
+    log = {'owner':owner_username, owner_username: owner_block, 'timestamp':timestamp, 'encrypted_name': encrypted_name, 'file_dsa_public': file_dsa_key.publickey()}
+    picklelog = pickle.dumps(log)
+    file_log_hash.update(picklelog)
+    sig = owner_msk.sign(file_log_hash, k)
+    log['log_signature'] = sig
     with open(out_filepath, 'wb') as outfile:
         pickle.dump(log, outfile, -1)
+
 
 #Taken from http://stackoverflow.com/questions/8384737/python-extract-file-name-from-path-no-matter-what-the-os-path-format
 def get_filename_from_filepath(filepath):

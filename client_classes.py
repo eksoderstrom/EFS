@@ -52,8 +52,8 @@ class AccessBlock():
     def get_file_signature_key(self):
         return self.file_dsa_key
 
-    def set_file_signature_key(self, self.file_dsa_key):
-        self.file_dsa_key = self.file_dsa_key
+    def set_file_signature_key(self, file_dsa_key):
+        self.file_dsa_key = file_dsa_key
 
     def encrypt_permission_block(self, mek_cipher):
         self.file_aes_key = mek_cipher.encrypt(self.file_aes_key)

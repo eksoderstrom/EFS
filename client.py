@@ -2,17 +2,24 @@ import xmlrpc.client, random, struct, os, hashlib, sys, base64
 from Crypto.Cipher import AES
 #RSA imports
 import Crypto.PublicKey.RSA as RSA
+import Crypto.PublicKey.DSA as DSA
 import Crypto.Random.OSRNG.posix as Nonce
+import Crypto.Random.random as SuperRandom
+import Crypto.Hash.SHA256 as SHA256
+import Crypto.Cipher.PKCS1_OAEP as PKCS1_OAEP
+import Crypto.Random as Random
+import Crypto.Random.random as random
 #MAC import
 import hmac
 import ntpath
 import pickle
 #custom imports
 from client_classes import FileHeader
-from client_classes import FileLog
-from client_classes import DirectoryLog
+from client_classes import AccessBlock
 #regex import
 import re
+
+import datetime
 
 s = xmlrpc.client.ServerProxy('https://localhost:443')
 
@@ -208,6 +215,42 @@ def generate_nonce(size):
     """
     #return Nonce.new().read(size) -> this cannot be used by windows
     return os.urandom(size)
+def generate_dsa_key(size):
+    """ Generate a fresh, new, DSA key object
+        where size is the size of the key object
+    """
+    key = DSA.generate(size)
+    return key
+
+def export_dsa_public(username, key):
+    filepath = username + '.dsapub'
+    with open(filepath, 'wb') as outfile:
+        pickle.dump(key.publickey(), outfile, -1)
+
+def export_dsa(username, key):
+    filepath = username + '.dsa'
+    with open(filepath, 'wb') as outfile:
+        pickle.dump(key, outfile, -1)
+
+def sign_with_dsa(aes_key, dsa_key, filepath):
+    """ Sign a file with DSA
+
+        filepath: encrypted data
+    """
+    filehash = SHA256.new()
+    chunksize=64*1024
+    with open(filepath, 'rb') as infile:
+        while True:
+            chunk = infile.read(chunksize)
+            if len(chunk) == 0:
+                break
+            filehash.update(chunk)
+    k = SuperRandom.StrongRandom().randint(1, dsa_key.q-1)
+    sig = dsa_key.sign(filehash.digest(), k)
+    return sig
+
+def verify_with_dsa(key, filehash, sig):
+    return key.verify(filehash.digest(), sig)
 def generate_rsa_key(size):
     """ Generate a fresh, new RSA key object
     where nonce is the random function and size is
@@ -356,44 +399,44 @@ def verify_generation_count(file_header, file_log):
 # and retrieving files and directories
 ########################################################
 
-def create_file(owner, filename, dst, s, db):
+def create(owner, filename):
     """ This method creates a file on the server.
         
     """
-    aes_key = generate_aes_key()
-    rsa_key = generate_rsa_key(RSA_KEY_SIZE)
-    new_filename = add_file_header(filename, aes_key, db, owner)
-    encrypt_file(new_filename, aes_key)
-    final_filename = new_filename + '.encrypted'
+    fek = generate_aes_key()
+    fsk_dsa_key = generate_dsa_key(1024)
+    print('Create: ' + filename)
+    
+    new_filename = filename + '.fh'
     
     #RPC Call here
-    encrypted_name = generate_mac_for_filename(aes_key, get_filename_from_filepath(final_filename))
-    dst = dst + '/' + encrypted_name
-    store_file_log(in_filepath, gen_count, aes_key, rsa_key, encrypted_name, owner)
-    with open(final_filename, "rb") as handle:
-        binary_data = xmlrpc.client.Binary(handle.read())
-    s.receive_file(binary_data, dst)
+    encrypted_name = generate_mac_for_filename(fek, get_filename_from_filepath(new_filename))
     
-def retrieve_from_server(pathname, s):
-    """ This method retrieves a file from the server.
-        ClientGUI should be able to call this directly.
-    """
+    add_file_header(filename, fek, fsk_dsa_key)
+    encrypt_file(new_filename, fek, encrypted_name)
+    #dst = dst + '/' + encrypted_name
+    timestamp = datetime.datetime.utcnow()
+    store_log(owner, fek, fsk_dsa_key, timestamp, filename, encrypted_name)
+   # with open(final_filename, "rb") as handle:
+   #     binary_data = xmlrpc.client.Binary(handle.read())
+    print("encrypted: " + encrypted_name)
+    return encrypted_name
 
-    assert len(log_filepath) > 5
-    assert log_filepath[-5:] == '.clog'
-
-    with open(log_filepath, 'rb') as input:
-        log = pickle.load(input)
-        
-    key = log.get_key()
-    arg = s.send_file_to_client(pathname)
-    filename = log.get_filename()
-
-    with open(filename, 'wb') as handle:
-        handle.write(arg.data)
-    decrypt_file(filename, key)
-    assert len(filename) > 10
-    remove_file_header(filename[0:-10])
+def get(username, filename):
+    in_filepath = filename + '.clog'
+    with open(in_filepath, 'rb') as input:
+        dict = pickle.load(input)
+    block = dict[username]
+    
+    key = RSA.importKey(open(username + '.pri').read())
+    cipher = PKCS1_OAEP.new(key, SHA256.new())
+    block.decrypt_permission_block(cipher)
+    decrypt_file(filename, block.get_file_encryption_key(), filename + '.decrypted')
+    fh = read_file_header(filename + '.decrypted')
+    remove_file_header(filename + '.decrypted')
+    print('get: ' + fh.get_filename())
+    print(fh.get_signature())
+    os.rename(filename + '.decrypted.rfh', fh.get_filename())
 
 def share_file(username, password, other_username, client_log):
     pass
@@ -419,34 +462,48 @@ def share_public_key():
 def get_public_key():
     pass
         
-def store_file_log(in_filepath, gen_count, aes_key, rsa_key, encrypted_name, owner):
-    """ Stores information about file on the client-size.
-
-        filesize:
-            Size of the file.
-
-        in_filepath:
-            Name of the input file
-
+def store_log(owner_username, fek, file_dsa_key, timestamp, filename, encrypted_name):
+    """ Stores information about the file on the sever-side. Facilitates downloading of 
+        associated data file. 
+        username:
+            username of owner
+        file_aes_key: 
+            aes key used to encrypt file
+        file_dsa_key: 
+            dsa key used to sign file            
+        filename:
+            Unecrypted name of the input file
+        timestamp:
+            The time when log file was last modified.         
+        encrypted_name: 
+            filepath on the encrypted file server
+        
         out_filepath:
             '<in_filepath>.clog' will always be used
             unless user specifies a name.
-
-        gen_count:
-            The version of this file. Starting value is 1.
-            
-        key: used to encrypt file
-
-        encrypted_name: filepath on the encrypted file server
     """
     out_filepath = encrypted_name + '.clog'
-    log = {}
-    log['owner'] = owner
+    owner_block = AccessBlock(fek, file_dsa_key);
+    owner_mek = RSA.importKey(open(owner_username+ '.pub').read())
+    hashfunc = SHA256.new()
+    cipher = PKCS1_OAEP.new(owner_mek, hashfunc)
+    owner_block.encrypt_permission_block(cipher)
     
-    log = FileLog(owner, in_filepath, aes_key, rsa_key, gen_count, encrypted_name)
+
+    file_log_hash = SHA256.new()
+    with open(owner_username + '.dsa', 'rb') as input:
+        owner_msk = pickle.load(input)
+    k = random.StrongRandom().randint(1,owner_msk.q-1)
+    
+    log = {'owner':owner_username, owner_username: owner_block, 'timestamp':timestamp, 'encrypted_name': encrypted_name, 'file_dsa_public': file_dsa_key.publickey()}
+    picklelog = pickle.dumps(log)
+    file_log_hash.update(picklelog)
+    sig = owner_msk.sign(file_log_hash, k)
+    log['log_signature'] = sig
     with open(out_filepath, 'wb') as outfile:
         pickle.dump(log, outfile, -1)
-        
+
+
 #Taken from http://stackoverflow.com/questions/8384737/python-extract-file-name-from-path-no-matter-what-the-os-path-format
 def get_filename_from_filepath(filepath):
     """ Retrieve filename from the filepath
@@ -455,7 +512,7 @@ def get_filename_from_filepath(filepath):
     head, tail = ntpath.split(filepath)
     return tail or ntpath.basename(head)
 
-def add_file_header(in_filepath, key):
+def add_file_header(in_filepath, fek, fsk):
     """ Adds a file header obj to the front of the file
         using Python's cpickle. 
         
@@ -463,13 +520,11 @@ def add_file_header(in_filepath, key):
     """
     out_filepath = in_filepath + '.fh'
     final_filename = out_filepath + '.encrypted'
-    
-    encrypted_name = generate_mac_for_filename(key, get_filename_from_filepath(final_filename))
-
     chunksize=64*1024
-    mac = generate_mac(key, in_filepath)
+    sig = sign_with_dsa(fek, fsk, in_filepath)
     filename = get_filename_from_filepath(in_filepath)
-    file_header = FileHeader(mac, gen_count)
+    print("fileheader: "+ filename)
+    file_header = FileHeader(filename, sig, 0)
     
     with open(in_filepath, 'rb') as infile:
         with open(out_filepath, 'wb') as outfile:
@@ -490,8 +545,6 @@ def read_file_header(in_filepath):
         extension '.fh'. Otherwise it will
         raise an error.
     """
-    assert len(in_filepath) > 3
-    assert in_filepath[-3:] == '.fh'
         
     with open(in_filepath, 'rb') as input:
         file_header = pickle.load(input)
@@ -512,10 +565,8 @@ def remove_file_header(in_filepath):
 
         CAREFUL. IT MAY OVERWRITE A FILE.
     """
-    assert len(in_filepath) > 3
-    assert in_filepath[-3:] == '.fh'
 
-    out_filepath = in_filepath[0:-3]
+    out_filepath = in_filepath + '.rfh'
     file_header = read_file_header(in_filepath)
     size_file_header = len(pickle.dumps(file_header))
     chunksize=64*1024
@@ -583,12 +634,10 @@ def decrypt_file(in_filepath, key, out_filepath=None, chunksize=64*1024):
         (i.e. if in_filepath is 'aaa.zip.enc' then
         out_filepath will be 'aaa.zip')
     """
-    if get_filename_from_filepath(in_filepath) == 'test.txt.fh.encrypted':
-        return True
 
     if not out_filepath:
         out_filepath = os.path.splitext(in_filepath)[0]
-
+    #out_filepath = in_filepath
     with open(in_filepath, 'rb') as infile:
         origsize = struct.unpack('<Q', infile.read(struct.calcsize('Q')))[0]
         iv = infile.read(16)
@@ -602,4 +651,5 @@ def decrypt_file(in_filepath, key, out_filepath=None, chunksize=64*1024):
                 outfile.write(decryptor.decrypt(chunk))
 
             outfile.truncate(origsize)
-
+#create('eric', 'C:/Users/Tiffany/Documents/GitHub/EFS/result.txt')
+#get('eric', '284604.clog', 'result.txt.encrypted.fh')

@@ -425,34 +425,46 @@ def share_public_key():
 def get_public_key():
     pass
         
-def store_file_log(owner_username, fek, fsk_dsa_key, timestamp, filename, encrypted_filename):
-    """ Stores information about file on the client-size.
-
-        filesize:
-            Size of the file.
-
-        in_filepath:
-            Name of the input file
-
+def store_file_log(username, user_rsa_key, user_dsa_key, file_aes_key, file_dsa_key, timestamp, filename, encrypted_filename):
+    """ Stores information about the file on the sever-side. Facilitates downloading of 
+        associated data file. 
+        username:
+            username of owner
+        file_aes_key: 
+            aes key used to encrypt file
+        file_dsa_key: 
+            dsa key used to sign file            
+        filename:
+            Unecrypted name of the input file
+        timestamp:
+            The time when log file was last modified.         
+        encrypted_name: 
+            filepath on the encrypted file server
+        
         out_filepath:
             '<in_filepath>.clog' will always be used
             unless user specifies a name.
-
-        gen_count:
-            The version of this file. Starting value is 1.
-            
-        key: used to encrypt file
-
-        encrypted_name: filepath on the encrypted file server
     """
     out_filepath = encrypted_name + '.clog'
 
-    owner_block = AccessBlock(owner_username, fek, fsk_dsa_key);
-    log = {'owner':owner_block, 'timestamp':timestamp, 'encrypted_filename':encrypted_filename}
+    owner_block = AccessBlock(username, user_rsa_key, user_file_aes_key, file_dsa_key)
+    encrypted_owner_block = owner_block.encrypt_permission_block()  #The username will still be in plaintext
+
+    file_log_hash = SHA256.new()
+    file_log_hash.update(encrypted_owner_block)
+    file_log_hash.update(file_dsa_key.publickey) #not sure if this is correct way to retrieve public key
+    file_log_hash.update(timestamp)
+    file_log_hash.update(filename)
+
+    #TODO: sign file_log_hash with user_dsa_key. Not sure how to do this yet. 
+    #TODO: what happens to the encrypted_filename?
+
+
+    log = {'owner':owner_hash, 'file_dsa_public': file_dsa_public_hash, 'filename':filename_hash, 'timestamp':timestamp_hash, 'encrypted_filename':encrypted_filename, "log_signature": file_log_hash}
 
     with open(out_filepath, 'wb') as outfile:
         pickle.dump(log, outfile, -1)
-        
+
 #Taken from http://stackoverflow.com/questions/8384737/python-extract-file-name-from-path-no-matter-what-the-os-path-format
 def get_filename_from_filepath(filepath):
     """ Retrieve filename from the filepath

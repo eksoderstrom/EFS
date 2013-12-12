@@ -85,23 +85,42 @@ class FileHeader():
 #############################################################################
 # AccessBlock
 # This class encapsulates permissions for a user.
-# Presence only of File Encryption Key points to read-only permission.
-# If File Signature Key (private half) is also included, user has read-write
+# user_rsa_key: Used for encrypting permission blocks per user 
+# file_aes_key: Used for encrypting data file contents 
+# file_dsa_key: Used for signing data file contents.
+# Presence only of file_aes_key points to read-only permission.
+# If file_dsa_key is also included, user has read-write
 # permission.
 #############################################################################
 
 class AccessBlock():
     
-    def __init__(self, username, fek, fsk=None):
+    def __init__(self, username, user_rsa_key, file_aes_key, file_dsa_key=None):
         self.username = username
-        self.fek = fek
-        self.fsk = fsk
+        self.user_rsa_key = user_rsa_key
+        self.encrypted_file_aes_key = file_aes_key #not encrypted yet in initialization
+        self.encrypted_file_dsa_key = file_dsa_key #not encrypted yet in initialization  
+        self.safeToGet = False #not yet safe to ask for keys, because they haven't been encrypted
 
     def get_username(self):
         return self.username
 
-    def get_file_encryption_key(self):
-        return self.fek
+    def encrypt_permission_block(self):
 
-    def get_file_signature_key(self):
-        return self.fsk
+        #ToDo: Encrypt file_aes_key and file_dsa_key (this may be None) with user_rsa_key 
+        #      set encrypted_file_aes_key and self_encrypted_file_dsa_key 
+        #      when encryption done, set self.safeToGet = True
+
+
+    def decrypt_permission_block(self):
+        #TODO: Decrypt file_aes_key and file_dsa_key (this may be None) using user_rsa_key.
+
+    def get_encrypted_file_aes_key(self):
+        if self.safeToGet:
+            return self.encrypted_file_aes_key
+
+    def get_encrypted_file_dsa_key(self):
+        if self.safeToGet:
+            return self.encrypted_file_dsa_key
+
+

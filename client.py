@@ -264,6 +264,23 @@ def export_dsa(username, key):
     with open(filepath, 'wb') as outfile:
         pickle.dump(key, outfile, -1)
 
+def encrypt_filename(aes_key, filename):
+
+    iv = bytes([ random.randint(0, 0xFF) for i in range(16)])
+    encryptor = AES.new(aes_key, AES.MODE_CFB, iv)
+    cipher = base64.b64encode(iv + encryptor.encrypt(filename))
+    #return struct.pack(cipher.decode(encoding='UTF-8'))
+    return urllib.parse.quote_plus(cipher.decode(encoding='UTF-8'))
+
+def decrypt_filename(aes_key, filename):
+    fileBytes = urllib.parse.unquote_plus(filename)
+    fileBytes = bytes(fileBytes, 'utf-8')
+    fileBytes = base64.b64decode(fileBytes)
+    iv = fileBytes[:16]
+    cipher = AES.new(aes_key, AES.MODE_CFB, iv)
+    plaintext = cipher.decrypt(fileBytes[16:])
+    return plaintext.decode(encoding='utf-8')        
+
 def sign_with_dsa(aes_key, dsa_key, filepath):
     """ Sign a file with DSA
 
@@ -430,12 +447,9 @@ def create_file(owner, filename):
     new_filename = filename + '.fh'
     
     #RPC Call here
-    encrypted_name = generate_mac_for_filename(fek, get_filename_from_filepath(new_filename))
-    #set name translation
-    names[encrypted_name] = os.path.basename(filename)
-    names[encrypted_name + '.clog'] = os.path.basename(filename)
+    encrypted_name = encrypt_filename(fek, get_filename_from_filepath(filename))
     
-    add_file_header(filename, fek, fsk_dsa_key)
+    add_file_header(filename,fek, fsk_dsa_key)
     encrypt_file(new_filename, fek, encrypted_name)
     #dst = dst + '/' + encrypted_name
     timestamp = datetime.datetime.utcnow()
@@ -445,7 +459,7 @@ def create_file(owner, filename):
     print("encrypted: " + encrypted_name)
     return encrypted_name
 
-def decrypt(username, owner, filename):
+def decrypt(username, filename):
     in_filepath = filename + '.clog'
     with open(in_filepath, 'rb') as input:
         log = pickle.load(input)
@@ -453,6 +467,7 @@ def decrypt(username, owner, filename):
     with open(in_filepath, 'rb') as input:
         filehash = input.read(len(log))
     block = log[username]
+    owner = log['owner']
     with open(owner + '.dsa', 'rb') as input:
         owner_dsa_key = pickle.load(input)
     #
@@ -473,11 +488,12 @@ def decrypt(username, owner, filename):
     fh = read_file_header(filename + '.decrypted')
     file_sig = fh.get_signature()
     remove_file_header(filename + '.decrypted')
-    print('get: ' + fh.get_filename())
+    
 
-
-    os.rename(filename + '.decrypted.rfh', fh.get_filename())
-    if verify_sig and verify_file_signature(file_sig, file_dsa_key, fh.get_filename()):
+    decrypted_filename = decrypt_filename(block.get_file_encryption_key(), get_filename_from_filepath(filename))
+    print('get: ' + decrypted_filename)
+    os.rename(filename + '.decrypted.rfh', decrypted_filename)
+    if verify_sig and verify_file_signature(file_sig, file_dsa_key, decrypted_filename):
         return True
     return False
 
@@ -494,8 +510,42 @@ def write_file(username, filelog, filename):
     add_file_header(filename, file_aes_key, file_dsa_key)
     encrypt_file(filename, file_aes_key, filelog[0:-5])
     
-def share_file(username, password, other_username, client_log):
-    pass
+def share_file(owner, other_username, write, filelog):
+    with open(filelog, 'rb') as input:
+        log = pickle.load(input)
+
+    userList = log['users']
+    userList.append(other_username)
+    owner_block = log[owner]
+    
+    key = RSA.importKey(open(owner + '.pri').read())
+    cipher = PKCS1_OAEP.new(key, SHA256.new())
+    owner_block.decrypt_permission_block(cipher)
+    file_aes_key = owner_block.get_file_encryption_key()
+    file_dsa_key = None
+
+    if write:
+        file_dsa_key = owner_block.get_file_signature_key()
+    user_block = AccessBlock(file_aes_key, file_dsa_key)
+    other_key = RSA.importKey(open(other_username + '.pub').read())
+    other_cipher = PKCS1_OAEP.new(other_key, SHA256.new())
+    user_block.encrypt_permission_block(other_cipher)
+    log[other_username] = user_block
+    file_log_hash = SHA256.new()
+    print('share_file:' + filelog)
+    with open(filelog, 'wb') as infile:
+        #infile.write("HIIII")
+        pickle.dump(log, infile, -1)
+    length = len(log)
+    with open(filelog, 'rb') as outfile:
+        picklelog = outfile.read(length)
+    file_log_hash.update(picklelog)
+    with open(owner + '.dsa', 'rb') as infile:
+        owner_msk = pickle.load(infile)
+    k = random.StrongRandom().randint(1,owner_msk.q-1)
+    sig = owner_msk.sign(file_log_hash.digest(), k)
+    with open(filelog, 'a+b') as outfile:
+        pickle.dump(sig, outfile, -1)
 
 def share_directory(username, password, other_username, client_log):
     pass

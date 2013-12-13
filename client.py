@@ -198,49 +198,6 @@ class Client():
         print('file is encrypted as:' + enc_file)
 
 c = Client()
-
-#########################################################
-# Shell 
-#
-#########################################################
-def set_proxy(proxy):
-    global s 
-    s = xmlrpc.client.ServerProxy(proxy)
-    print("s set to " + proxy)
-
-def rm(path):
-    try:
-        s.rm(c.username, c.password, path)
-    except xmlrpc.client.ProtocolError as err:
-        print("invalid credentials")
-
-def xfer(filename, dst):
-    key = generate_aes_key()
-    add_file_header(filename, key)
-    new_filename = filename + '.fh'
-    encrypt_file(new_filename, key)
-    with open(new_filename+".encrypted", "rb") as handle:
-        binary_data = xmlrpc.client.Binary(handle.read())
-    s.receive_file(binary_data, dst)
- 
-def get_file(path, dst):
-    arg = s.send_file_to_client(path)
-    with open(dst, 'wb') as handle:
-        handle.write(arg.data)
-    
-
-
-
-    
-
-def mv(source, dst):
-    pass
-
-def enc(fn):
-    encrypt_file(new_in_filepath)
-
-def dec(fn):
-    decrypt_file(fn, "/Users/eks/Desktop/decrypted")
     
 #########################################################
 # Key Generation Methods

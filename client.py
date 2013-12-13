@@ -20,6 +20,7 @@ from client_classes import AccessBlock
 import re
 
 import datetime
+INSUFFICIENT_PRIVILEGE_EXCEPTION = -2
 
 s = xmlrpc.client.ServerProxy('https://localhost:443')
 
@@ -27,6 +28,7 @@ s = xmlrpc.client.ServerProxy('https://localhost:443')
 AES_KEY_SIZE = 32
 RSA_KEY_SIZE = 2048
 FILE_HEADER_NONCE_SIZE = 32
+
 
 class Client():
     def __init__(self):
@@ -64,7 +66,7 @@ class Client():
         print("logged out " + name)
 
     def whoami(self):
-        if (self.username != None):
+        if self.username:
             print(self.username)
         else:
             print("not logged in")
@@ -74,7 +76,7 @@ class Client():
             if self.s.register(username, password) == 'ok':
                 print("registration success")
             else:
-                print("registration failed, choose another username")
+                print("username taken")
         else:
             print("logout before registering as another user")
 
@@ -130,7 +132,12 @@ class Client():
         try:
             with open(filename, "rb") as handle:
                 binary_data = xmlrpc.client.Binary(handle.read())
-            s.receive_file(self.username, self.password, binary_data, dst)
+            ret = s.receive_file(self.username, self.password, binary_data, dst)
+            if ret == True:
+                print("Successfully uploaded file " + filename)
+            if ret == INSUFFICIENT_PRIVILEGE_EXCEPTION:
+                print("insufficient file privileges")
+            
         except:
             print("File upload failed")
 

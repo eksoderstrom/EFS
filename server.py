@@ -14,12 +14,9 @@ except ImportError:
 KEYFILE='privatekey.pem'    # Replace with your PEM formatted key file
 CERTFILE='cert.pem'  # Replace with your PEM formatted certificate file
 ROOTDIR='/Users/eks/EFS/server/'
+INSUFFICIENT_PRIVILEGE_EXCEPTION = -2
 
-userPassDict = {"eric":"e",
-                "tiffany":"t"}
 
-permissionsDict = {}
-    
 class SimpleXMLRPCServerTLS(SimpleXMLRPCServer):
     def __init__(self, addr, requestHandler=SimpleXMLRPCRequestHandler,
                  logRequests=True, allow_none=False, encoding=None, bind_and_activate=True):
@@ -33,36 +30,7 @@ class SimpleXMLRPCServerTLS(SimpleXMLRPCServer):
                 # first, call the original implementation which returns
                 # True if all OK so far
                 if SimpleXMLRPCRequestHandler.parse_request(self):
-                    # next we authenticate
                     return True
-                    """
-                    if self.authenticate(self.headers):
-                        return True
-                    else:
-                    """
-                        # if authentication fails, tell the client
-                    self.send_error(401, 'Authentication failed')
-                return False
-            
-            def authenticate(self, headers):
-                from base64 import b64decode
-                #    Confirm that Authorization header is set to Basic
-                (basic, _, encoded) = headers.get('Authorization').partition(' ')
-                assert basic == 'Basic', 'Only basic authentication supported'
-                
-                #    Encoded portion of the header is a string
-                #    Need to convert to bytestring
-                encodedByteString = encoded.encode()
-                #    Decode Base64 byte String to a decoded Byte String
-                decodedBytes = b64decode(encodedByteString)
-                #    Convert from byte string to a regular String
-                decodedString = decodedBytes.decode()
-                #    Get the username and password from the string
-                (username, _, password) = decodedString.partition(':')
-                #    Check that username and password match internal global dictionary
-                if username in userPassDict:
-                    if userPassDict[username] == password:
-                        return True
                 return False
         
         #    Override the normal socket methods with an SSL socket
@@ -103,26 +71,30 @@ def executeRpcServer():
             else:
                 return 'fail'
 
-            """
-            if userPassDict[username] == password:
-                return "ok"
-            else:
-                return "fail"
-            """
-
         def echo(self, arg):
             return arg
 
         def ls(self, username, password, path):
-            return os.listdir(ROOTDIR + path)
+            if auth.authenticate(username, password):
+                return os.listdir(ROOTDIR + path)
+            return False
 
 
         def receive_file(self, username, password, arg, dst):
-            with open(ROOTDIR + dst, "wb") as handle:
-                if handle:
-                    handle.write(arg.data)
-                    auth.add_file(dst, username)
-                    return True
+            if auth.authenticate(username, password):
+                if os.path.isfile(ROOTDIR + dst):
+                    if auth.has_write(username, ROOTDIR + dst):
+                        with open(ROOTDIR + dst, "wb") as handle:
+                            handle.write(arg.data)
+                            return True
+                    else:
+                        return INSUFFICIENT_PRIVILEGE_EXCEPTION
+                else:
+                    print('righthere')
+                    with open(ROOTDIR + dst, "wb") as handle:
+                        handle.write(arg.data)
+                        auth.add_file(ROOTDIR + dst, username)
+                        return True
 
         def send_file_to_client(self, username, password, path):
             if auth.authenticate(username, password):
@@ -153,15 +125,6 @@ def executeRpcServer():
 
             if username in userPassDict:
                 return "fail"
-            """
-            else:
-                userPassDict[username] = password
-                try:
-                    os.makedirs(ROOTDIR + "/" + username+ "/")
-                except OSError as exc:
-                    return False
-                return "ok"
-            """
 
 
         """
@@ -182,7 +145,6 @@ def executeRpcServer():
             except OSError as exc:
                 return False
  
-        
         
         #    For this test pickle function I am assuming the pickled object is just a list
         def uploadPickle(self, pickleStringBinary):

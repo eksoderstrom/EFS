@@ -39,18 +39,30 @@ def register(username, password):
     return True
 
 def add_file(path, owner):
+    print('adding file')
     db = db_setup()
     abspath = os.path.abspath(path)
     user = db.query(User).get(owner)
     fil = db.query(File).get(abspath)
-    print('add file')
     if user:
         newfile = File()
         newfile.path = abspath
+        print('adding file ' + abspath)
         newfile.owner = owner
         newfile.read_permissions.append(user)
         db.add(newfile)
         db.commit()
+
+def add_write(username, path):
+    db = db_setup()
+    abspath = os.path.abspath(path)
+    user = db.query(User).get(username)
+    fil = db.query(File).get(abspath)
+    if user and fil:
+        fil.write_permissions.append(user)
+        db.commit()
+        return True
+    return False
 
 def add_read(username, path):
     db = db_setup()
@@ -72,6 +84,20 @@ def isOwner(username, path):
         return fil.owner == username
     return False
     
+def has_write(username, path):
+    db = db_setup()
+    abspath = os.path.abspath(path)
+    user = db.query(User).get(username)
+    fil = db.query(File).get(abspath)
+    print('user = ' + username)
+    print('path = ' + abspath)
+    print(fil.owner) 
+    if user and fil:
+        if fil.owner == username:
+            return True
+        if user in fil.write_permissions:
+            return True
+    return False
 
 def has_read(username, path):
     db = db_setup()

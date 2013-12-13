@@ -102,6 +102,13 @@ class Shell(cmd.Cmd):
     def do_EOF(self, line):
         return True
 
+    def do_create(self, line):
+        p = line.split()
+        if len(p) != 3:
+            print("Usage: filename souce dst")
+        else:
+            self.c.create(p[0], p[1], p[2])            
+
     """
     The following methods should be available for testing only, and should be removed for the final product.
     """

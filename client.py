@@ -100,28 +100,6 @@ class Client():
     def pwd(self):
         print(self.wd)
 
-    def share_read(self, path, recipient):
-        try:
-            if s.share_read(self.username, self.password, path, recipient):
-                print('successfully shared read access to ' + path + ' with ' + recipient)
-            else:
-                print('failed to share')
-        except:
-            print('connection error')
-            
-
-    def get_file(self, path, dst):
-        try:
-            arg = s.send_file_to_client(self.username, self.password, path)
-            if arg:
-                with open(dst, 'wb+') as handle:
-                    handle.write(arg.data)
-                print('successfully retrieved ' + path)
-            else:
-                print("permission denied")
-        except:
-            print("get file failed")
-
 
     """
     Private methods not exposed through the shell
@@ -130,7 +108,7 @@ class Client():
         try:
             with open(filename, "rb") as handle:
                 binary_data = xmlrpc.client.Binary(handle.read())
-            s.receive_file(self.username, self.password, binary_data, dst)
+            s.receive_file(binary_data, dst + '/' + os.path.basename(filename))
         except:
             print("File upload failed")
 
@@ -156,7 +134,11 @@ class Client():
                 s.mkdir(self.username, self.password, self.wd + path)
             else:
                 print('you don\'t have permission to access that directory')
-                 
+
+    def create(self, filename, source, dst):
+        enc_file = create(self.username, filename)
+        self.xfer(filename, dst)
+        print('file is encrypted as:' + enc_file)
 
 c = Client()
 
@@ -185,7 +167,7 @@ def xfer(filename, dst):
     s.receive_file(binary_data, dst)
  
 def get_file(path, dst):
-    arg = s.send_file_to_client(self.username, self.password, path)
+    arg = s.send_file_to_client(path)
     with open(dst, 'wb') as handle:
         handle.write(arg.data)
     
@@ -375,12 +357,19 @@ def verify_file_signature(sig, file_dsa_key, filepath):
             filehash.update(chunk)
     return file_dsa_key.verify(filehash.digest(), sig)
 
+def verify_log_signature(sig, owner_dsa_key, log):
+    del log['log_signature']
+    picklelog = pickle.dumps(log)
+    h = SHA256.new()
+    h.update(picklelog)
+    return owner_dsa_key.verify(h.digest(), sig)    
+
 ########################################################
 # These methods help with encrypting, decrypting, sending
 # and retrieving files and directories
 ########################################################
 
-def create_file(owner, filename):
+def create(owner, filename):
     """ This method creates a file on the server.
         
     """
@@ -397,21 +386,21 @@ def create_file(owner, filename):
     encrypt_file(new_filename, fek, encrypted_name)
     #dst = dst + '/' + encrypted_name
     timestamp = datetime.datetime.utcnow()
-    store_file_log(owner, fek, fsk_dsa_key, timestamp, filename, encrypted_name)
+    store_log(owner, fek, fsk_dsa_key, timestamp, filename, encrypted_name)
    # with open(final_filename, "rb") as handle:
    #     binary_data = xmlrpc.client.Binary(handle.read())
     print("encrypted: " + encrypted_name)
     return encrypted_name
 
-def get(username, encrypted_filename):
-    in_filepath = encrypted_filename + '.clog'
+def get(username, owner, filename):
+    in_filepath = filename + '.clog'
     with open(in_filepath, 'rb') as input:
         log = pickle.load(input)
         log_sig = pickle.load(input)
     with open(in_filepath, 'rb') as input:
         filehash = input.read(len(log))
     block = log[username]
-    with open('eric.dsa', 'rb') as input:
+    with open(owner + '.dsa', 'rb') as input:
         owner_dsa_key = pickle.load(input)
     #
     file_dsa_key = log['file_dsa_public']
@@ -427,38 +416,35 @@ def get(username, encrypted_filename):
 
     
     block.decrypt_permission_block(cipher)
-    decrypt_file(encrypted_filename, block.get_file_encryption_key(), encrypted_filename + '.decrypted')
-    fh = read_file_header(encrypted_filename + '.decrypted')
+    decrypt_file(filename, block.get_file_encryption_key(), filename + '.decrypted')
+    fh = read_file_header(filename + '.decrypted')
     file_sig = fh.get_signature()
-    remove_file_header(encrypted_filename + '.decrypted')
+    remove_file_header(filename + '.decrypted')
     print('get: ' + fh.get_filename())
 
 
-    os.rename(encrypted_filename + '.decrypted.rfh', fh.get_filename())
+    os.rename(filename + '.decrypted.rfh', fh.get_filename())
     if verify_sig and verify_file_signature(file_sig, file_dsa_key, fh.get_filename()):
         return True
     return False
 
-###### This is not finished yet
-def share_file(username_to_share_with, file_log_name, read=True, write=False):
-    """
-    Updates file log, by adding provided username to list of users and a
-    corresponding user AccessBlock value in the log.
-    """
-    """file_log = file_log_name + ".flog"
-    with open(file_log, 'wb') as input: 
+def write_file(username, filelog, filename):
+    with open(filelog, 'rb') as input:
         log = pickle.load(input)
-    log['users'].append(username_to_share_with)
-    file_aes_key = log[]
-    if read and write:
-        shareBlock = AccessBlock
-    log[username_to_share_with] = shareBlock
-    pass"""
+
+    
+    block = log[username]
+    block.decrypt_permission(cipher)
+    file_aes_key = block.get_file_encryption_key()
+    file_dsa_key = block.get_file_signature_key()
+
+    add_file_header(filename, file_aes_key, file_dsa_key)
+    encrypt_file(filename, file_aes_key, filelog[0:-5])
+    
+def share_file(username, password, other_username, client_log):
     pass
 
-
-
-def share_directory(username, password, other_username, dir_log):
+def share_directory(username, password, other_username, client_log):
     pass
 
 def send_dir_to_server(username, directory, key, s, db):
@@ -479,7 +465,7 @@ def share_public_key():
 def get_public_key():
     pass
         
-def store_file_log(owner_username, file_aes_key, file_dsa_key, timestamp, filename, encrypted_name):
+def store_log(owner_username, fek, file_dsa_key, timestamp, filename, encrypted_name):
     """ Stores information about the file on the sever-side. Facilitates downloading of 
         associated data file. 
         username:
@@ -500,7 +486,7 @@ def store_file_log(owner_username, file_aes_key, file_dsa_key, timestamp, filena
             unless user specifies a name.
     """
     out_filepath = encrypted_name + '.clog'
-    owner_block = AccessBlock(file_aes_key, file_dsa_key);
+    owner_block = AccessBlock(fek, file_dsa_key);
     owner_mek = RSA.importKey(open(owner_username+ '.pub').read())
     hashfunc = SHA256.new()
     cipher = PKCS1_OAEP.new(owner_mek, hashfunc)
@@ -524,50 +510,52 @@ def store_file_log(owner_username, file_aes_key, file_dsa_key, timestamp, filena
     with open(out_filepath, 'a+b') as outfile:
         pickle.dump(sig, outfile, -1)
 
+class Test:
 
-def store_directory_log(owner_username, dir_aes_key, dir_dsa_key, timestamp, dirname, encrypted_dirname):
-    """ Stores information about the directory on the server-side. 
-    ?Facilitates downloading of associated data file. 
-    owner_username:
-        username of owner
-    dir_aes_key: 
-        aes key used to encrypt dir
-    file_dsa_key: 
-        dsa key used to sign file            
-    filename:
-        Unecrypted name of the input file
-    timestamp:
-        The time when log file was last modified.                 
-    out_filepath:
-        '<in_filepath>.flog' will always be used
-        unless user specifies a name.
-    """
-    out_filepath = encrypted_name + ".dlog"
-    owner_block = AcessBlock(dir_aes_key, dir_dsa_key)
-    owner_rsa_key = RSA.importKey(open(owner_username + '.pub').read())
+    def __init__(self, one, two):
+        self.one = one
+        self.two = two
 
-    hashfunc = SHA256.new()
-    cipher = PKCS1_OAEP.new(owner_rsa_key, hashfunc)
-    owner_block.encrypt_permission_block(cipher)
+def testAgain():
+    key = generate_dsa_key(1024)
+    test = Test(14, 'bottle')
+    pickled = pickle.dumps(test)
+    file = SHA256.new()
+    file.update(pickled)
+    k = random.StrongRandom().randint(1,key.q-1)
+    sig = key.sign(file.digest(), k)
+
+    with open('test.help', 'wb') as outfile:
+        pickle.dump(test, outfile,-1)
+        pickle.dump(sig, outfile, -1)
+        #outfile.dump(test)
+        #outfile.dump(sig)
     
+    with open('test.help', 'rb') as input:
+        obj = pickle.load(input)
+        sigobj = pickle.load(input)
 
-    file_log_hash = SHA256.new()
-    with open(owner_username + '.dsa', 'rb') as input:
-        owner_dsa_key = pickle.load(input)
-    k = random.StrongRandom().randint(1,owner_dsa_key.q-1)
-    
-    log = {'owner':owner_username, owner_username:owner_block, 'users':[],'timestamp':timetamp, 'dirname':dirname, 'encrypted_dirname':encrypted_dirname}
+    objp = pickle.dumps(obj)
+    fileobj = SHA256.new()
+    fileobj.update(objp)
+    return key.verify(fileobj.digest(), sig)
+
+def testPickle():
+    key = generate_dsa_key(1024)
+    log = {'owner': 'hi', 'test': 'yes'}
     picklelog = pickle.dumps(log)
-    file_log_hash.update(picklelog)
-    sig = owner_dsa_key.sign(file_log_hash, k)
-    log['log_signature'] = sig
-    with open(out_filepath, 'wb') as outfile:
-        pickle.dump(log, outfile, -1)
-
-
+    file = SHA256.new()
+    file.update(picklelog)
+    k = random.StrongRandom().randint(1,key.q-1)
+    sig = key.sign(file.digest(), k)
     
-
-
+    log['sig'] = 'random'
+    del log['sig']
+    newh = pickle.dumps(log)
+    h = SHA256.new()
+    h.update(newh)
+    pubkey = key.publickey()
+    return pubkey.verify(h.digest(), sig)
 
 #Taken from http://stackoverflow.com/questions/8384737/python-extract-file-name-from-path-no-matter-what-the-os-path-format
 def get_filename_from_filepath(filepath):

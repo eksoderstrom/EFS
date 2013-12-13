@@ -7,15 +7,21 @@ class Shell(cmd.Cmd):
     c = Client()
 
 
-    """
-    share read access with recipient
-    """
+    #share read access with recipient
     def do_sr(self, line):
         p = line.split()
         if len(p) != 2:
             print("Usage: sr path recipient")
         else:
             self.c.share_read(p[0], p[1])
+
+    # share write access with recipient
+    def do_sw(self, line):
+        p = line.split()
+        if len(p) != 2:
+            print("Usage: sw path recipient")
+        else:
+            self.c.share_write(p[0], p[1])
 
     def do_decrypt(self, line):
         p = line.split()

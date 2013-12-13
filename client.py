@@ -111,6 +111,15 @@ class Client():
                 print('failed to share')
         except:
             print('connection error')
+
+    def share_write(self, path, recipient):
+        try:
+            if s.share_write(self.username, self.password, path, recipient):
+                print('successfully shared write access to ' + path + ' with ' + recipient)
+            else:
+                print('failed to share')
+        except:
+            print('connection error')
             
 
     def get_file(self, path, dst):

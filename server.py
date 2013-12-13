@@ -116,8 +116,17 @@ def executeRpcServer():
 
         def share_read(self, username, password, path, recipient):
             if auth.authenticate(username, password):
-                if auth.isOwner(username, ROOTDIR + '/' + path):
-                    auth.add_read(recipient, path)
+                abspath = ROOTDIR + '/' + path
+                if auth.isOwner(username, abspath):
+                    auth.add_read(recipient, abspath)
+                    return True
+                return False
+
+        def share_write(self, username, password, path, recipient):
+            if auth.authenticate(username, password):
+                abspath = ROOTDIR + '/' + path
+                if auth.isOwner(username, abspath):
+                    auth.add_write(recipient, abspath)
                     return True
                 return False
                 

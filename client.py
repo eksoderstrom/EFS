@@ -115,13 +115,13 @@ class Client():
 
 
     def share_read(self, path, recipient):
-        try:
-            if s.share_read(self.username, self.password, path, recipient):
-                print('successfully shared read access to ' + path + ' with ' + recipient)
-            else:
-                print('failed to share')
-        except:
-            print('connection error')
+        share_file(recipient, False, filelog)
+        if s.share_read(self.username, self.password, path, recipient):
+            print('successfully shared read access to ' + path + ' with ' + recipient)
+        else:
+            print('failed to share')
+
+
 
     def share_write(self, path, recipient):
         try:
@@ -134,16 +134,14 @@ class Client():
             
 
     def get_file(self, path, dst):
-        try:
-            arg = s.send_file_to_client(self.username, self.password, path)
-            if arg:
-                with open(dst, 'wb+') as handle:
-                    handle.write(arg.data)
-                print('successfully retrieved ' + path)
-            else:
-                print("permission denied")
-        except:
-            print("get file failed")
+        arg = s.send_file_to_client(self.username, self.password, path)
+        if arg:
+            with open(dst + '/' + os.path.basename(path), 'wb+') as handle:
+                handle.write(arg.data)
+            print('successfully retrieved ' + path)
+        else:
+            print("permission denied")
+
 
     def share_file(self, other_user, filename, flog_on_server):
         flog = get_filename_from_filepath(filename) + '.flog'
@@ -251,8 +249,6 @@ def mv(source, dst):
 def enc(fn):
     encrypt_file(new_in_filepath)
 
-def dec(fn):
-    decrypt_file(fn, "/Users/eks/Desktop/decrypted")
     
 #########################################################
 # Key Generation Methods

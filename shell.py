@@ -1,4 +1,4 @@
-import cmd
+import cmd, os
 import client
 from client import Client
 
@@ -25,10 +25,12 @@ class Shell(cmd.Cmd):
 
     def do_decrypt(self, line):
         p = line.split()
-        if len(p) != 2:
-            print("Usage: decrypt owner path")
+        if len(p) != 1:
+            print("Usage: decrypt filename")
+        elif os.path.isfile(p[0]):
+            client.decrypt(self.c.username, p[0])
         else:
-            client.decrypt(self.c.username, p[0], p[1])
+            print("filename not found")
         
 
     def do_echo(self, line):
@@ -45,7 +47,10 @@ class Shell(cmd.Cmd):
         p = line.split()
         if len(p) != 2:
             print("Usage: get src dst")
-        self.c.get_file(p[0], p[1])
+        elif os.path.isdir(p[1]):
+            self.c.get_file(p[0], p[1])
+        else:
+            print("dst must be a directory")
 
     def do_mv(self, line):
         p = line.split()

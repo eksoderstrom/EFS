@@ -187,7 +187,7 @@ class Client():
     def create(self, source, dst):
         enc_file = create_file(self.username, source)
         self.xfer(os.path.abspath(enc_file), dst + enc_file)
-        self.xfer(os.path.abspath(enc_file + '.clog'), dst + enc_file + '.clog')
+        self.xfer(os.path.abspath(enc_file + '.flog'), dst + enc_file + '.flog')
         print('file is encrypted as:' + enc_file)
 
 c = Client()
@@ -459,8 +459,22 @@ def create_file(owner, filename):
     print("encrypted: " + encrypted_name)
     return encrypted_name
 
+def create_directory(owner, filename):
+    """ This method creates a file on the server.
+        
+    """
+    fek = generate_aes_key()
+    fsk_dsa_key = generate_dsa_key(1024)
+    
+    encrypted_name = encrypt_filename(fek, get_filename_from_filepath(filename))
+    
+    timestamp = datetime.datetime.utcnow()
+    store_directory_log(owner, fek, fsk_dsa_key, timestamp, filename, encrypted_name)
+    print("encrypted: " + encrypted_name)
+    return encrypted_name
+
 def decrypt(username, filename):
-    in_filepath = filename + '.clog'
+    in_filepath = filename + '.flog'
     with open(in_filepath, 'rb') as input:
         log = pickle.load(input)
         log_sig = pickle.load(input)
@@ -510,14 +524,14 @@ def write_file(username, filelog, filename):
     add_file_header(filename, file_aes_key, file_dsa_key)
     encrypt_file(filename, file_aes_key, filelog[0:-5])
     
-def share_file(owner, other_username, write, filelog):
+def share_file(other_username, write, filelog):
     with open(filelog, 'rb') as input:
         log = pickle.load(input)
 
     userList = log['users']
     userList.append(other_username)
     owner_block = log[owner]
-    
+    owner = log['owner']
     key = RSA.importKey(open(owner + '.pri').read())
     cipher = PKCS1_OAEP.new(key, SHA256.new())
     owner_block.decrypt_permission_block(cipher)
@@ -547,8 +561,37 @@ def share_file(owner, other_username, write, filelog):
     with open(filelog, 'a+b') as outfile:
         pickle.dump(sig, outfile, -1)
 
-def share_directory(username, password, other_username, client_log):
-    pass
+def share_directory(other_username, dlog):
+    with open(dlog, 'rb') as input:
+        log = pickle.load(input)
+
+    userList = log['users']
+    userList.append(other_username)
+    owner_block = log[owner]
+    owner = log['owner']
+    key = RSA.importKey(open(owner + '.pri').read())
+    cipher = PKCS1_OAEP.new(key, SHA256.new())
+    owner_block.decrypt_permission_block(cipher)
+    file_aes_key = owner_block.get_file_encryption_key()
+    file_dsa_key = None
+    user_block = AccessBlock(file_aes_key, file_dsa_key)
+    other_key = RSA.importKey(open(other_username + '.pub').read())
+    other_cipher = PKCS1_OAEP.new(other_key, SHA256.new())
+    user_block.encrypt_permission_block(other_cipher)
+    log[other_username] = user_block
+    file_log_hash = SHA256.new()
+    with open(filelog, 'wb') as infile:
+        pickle.dump(log, infile, -1)
+    length = len(log)
+    with open(filelog, 'rb') as outfile:
+        picklelog = outfile.read(length)
+    file_log_hash.update(picklelog)
+    with open(owner + '.dsa', 'rb') as infile:
+        owner_msk = pickle.load(infile)
+    k = random.StrongRandom().randint(1,owner_msk.q-1)
+    sig = owner_msk.sign(file_log_hash.digest(), k)
+    with open(filelog, 'a+b') as outfile:
+        pickle.dump(sig, outfile, -1)    
 
 def send_dir_to_server(username, directory, key, s, db):
     pass
@@ -559,14 +602,69 @@ def retrieve_dir_from_server(log_filepath, s, db):
 def delete_file():
     pass
 
-def rename_file():
-    pass
+def rename_file(username, old_filename, new_filename):
+    filelog = oldfilename + '.flog'
+    with open(filelog, 'rb') as input:
+        log = pickle.load(input)
+        sig = pickle.load(input)
+        
+    block = log[username]
 
-def share_public_key():
-    pass
+    key = RSA.importKey(open(username + '.pri').read())
+    cipher = PKCS1_OAEP.new(key, SHA256.new())
+    block.decrypt_permission_block(cipher)
+    encrypted_new_filename = encrypt_filename(block.get_file_encryption_key(), new_filename)
 
-def get_public_key():
-    pass
+    log['encrypted_name'] = encrypted_new_filename
+
+    new_filelog = encrypted_new_filename + '.flog'
+    with open(new_filelog, 'wb') as outfile:
+        pickle.dump(log)
+    length = len(log)
+    with open(new_filelog, 'rb') as infile:
+        pickleload = infile.read(length)
+    file_log_hash = SHA256.new()
+    file_log_hash.update(picklelog)
+    with open(username + '.dsa', 'rb') as infile:
+        owner_msk = pickle.load(infile)
+    k = random.StrongRandom().randint(1,owner_msk.q-1)
+    sig = owner_msk.sign(file_log_hash.digest(), k)
+    with open(new_filelog, 'a+b') as outfile:
+        pickle.dump(sig, outfile, -1)
+
+    return encrypted_new_filename
+
+def rename_directory(username, old_filename, new_filename):
+    filelog = oldfilename + '.flog'
+    with open(filelog, 'rb') as input:
+        log = pickle.load(input)
+        sig = pickle.load(input)
+        
+    block = log[username]
+
+    key = RSA.importKey(open(username + '.pri').read())
+    cipher = PKCS1_OAEP.new(key, SHA256.new())
+    block.decrypt_permission_block(cipher)
+    encrypted_new_filename = encrypt_filename(block.get_file_encryption_key(), new_filename)
+
+    log['encrypted_name'] = encrypted_new_filename
+
+    new_filelog = encrypted_new_filename + '.dlog'
+    with open(new_filelog, 'wb') as outfile:
+        pickle.dump(log)
+    length = len(log)
+    with open(new_filelog, 'rb') as infile:
+        pickleload = infile.read(length)
+    file_log_hash = SHA256.new()
+    file_log_hash.update(picklelog)
+    with open(username + '.dsa', 'rb') as infile:
+        owner_msk = pickle.load(infile)
+    k = random.StrongRandom().randint(1,owner_msk.q-1)
+    sig = owner_msk.sign(file_log_hash.digest(), k)
+    with open(new_filelog, 'a+b') as outfile:
+        pickle.dump(sig, outfile, -1)
+
+    return encrypted_new_filename
         
 def store_log(owner_username, fek, file_dsa_key, timestamp, filename, encrypted_name):
     """ Stores information about the file on the sever-side. Facilitates downloading of 
@@ -585,10 +683,10 @@ def store_log(owner_username, fek, file_dsa_key, timestamp, filename, encrypted_
             filepath on the encrypted file server
         
         out_filepath:
-            '<in_filepath>.clog' will always be used
+            '<in_filepath>.flog' will always be used
             unless user specifies a name.
     """
-    out_filepath = encrypted_name + '.clog'
+    out_filepath = encrypted_name + '.flog'
     owner_block = AccessBlock(fek, file_dsa_key);
     owner_mek = RSA.importKey(open(owner_username+ '.pub').read())
     hashfunc = SHA256.new()
@@ -613,52 +711,50 @@ def store_log(owner_username, fek, file_dsa_key, timestamp, filename, encrypted_
     with open(out_filepath, 'a+b') as outfile:
         pickle.dump(sig, outfile, -1)
 
-class Test:
+def store_directory_log(owner_username, fek, file_dsa_key, timestamp, filename, encrypted_name):
+    """ Stores information about the file on the sever-side. Facilitates downloading of 
+        associated data file. 
+        username:
+            username of owner
+        file_aes_key: 
+            aes key used to encrypt file
+        file_dsa_key: 
+            dsa key used to sign file            
+        filename:
+            Unecrypted name of the input file
+        timestamp:
+            The time when log file was last modified.         
+        encrypted_name: 
+            filepath on the encrypted file server
+        
+        out_filepath:
+            '<in_filepath>.flog' will always be used
+            unless user specifies a name.
+    """
+    out_filepath = encrypted_name + '.dlog'
+    owner_block = AccessBlock(fek, file_dsa_key);
+    owner_mek = RSA.importKey(open(owner_username+ '.pub').read())
+    hashfunc = SHA256.new()
+    cipher = PKCS1_OAEP.new(owner_mek, hashfunc)
+    owner_block.encrypt_permission_block(cipher)
+    
 
-    def __init__(self, one, two):
-        self.one = one
-        self.two = two
+    file_log_hash = SHA256.new()
+    with open(owner_username + '.dsa', 'rb') as input:
+        owner_msk = pickle.load(input)
+    k = random.StrongRandom().randint(1,owner_msk.q-1)
+    
+    log = {'owner':owner_username, owner_username: owner_block, 'timestamp':timestamp, 'encrypted_name': encrypted_name, 'file_dsa_public': file_dsa_key.publickey()}
 
-def testAgain():
-    key = generate_dsa_key(1024)
-    test = Test(14, 'bottle')
-    pickled = pickle.dumps(test)
-    file = SHA256.new()
-    file.update(pickled)
-    k = random.StrongRandom().randint(1,key.q-1)
-    sig = key.sign(file.digest(), k)
-
-    with open('test.help', 'wb') as outfile:
-        pickle.dump(test, outfile,-1)
+    with open(out_filepath, 'wb') as outfile:
+        pickle.dump(log, outfile, -1)
+    length = len(log)
+    with open(out_filepath, 'rb') as outfile:
+        picklelog = outfile.read(length)
+    file_log_hash.update(picklelog)
+    sig = owner_msk.sign(file_log_hash.digest(), k)
+    with open(out_filepath, 'a+b') as outfile:
         pickle.dump(sig, outfile, -1)
-        #outfile.dump(test)
-        #outfile.dump(sig)
-    
-    with open('test.help', 'rb') as input:
-        obj = pickle.load(input)
-        sigobj = pickle.load(input)
-
-    objp = pickle.dumps(obj)
-    fileobj = SHA256.new()
-    fileobj.update(objp)
-    return key.verify(fileobj.digest(), sig)
-
-def testPickle():
-    key = generate_dsa_key(1024)
-    log = {'owner': 'hi', 'test': 'yes'}
-    picklelog = pickle.dumps(log)
-    file = SHA256.new()
-    file.update(picklelog)
-    k = random.StrongRandom().randint(1,key.q-1)
-    sig = key.sign(file.digest(), k)
-    
-    log['sig'] = 'random'
-    del log['sig']
-    newh = pickle.dumps(log)
-    h = SHA256.new()
-    h.update(newh)
-    pubkey = key.publickey()
-    return pubkey.verify(h.digest(), sig)
 
 #Taken from http://stackoverflow.com/questions/8384737/python-extract-file-name-from-path-no-matter-what-the-os-path-format
 def get_filename_from_filepath(filepath):
@@ -807,4 +903,4 @@ def decrypt_file(in_filepath, key, out_filepath=None, chunksize=64*1024):
 
             outfile.truncate(origsize)
 #create('eric', 'C:/Users/Tiffany/Documents/GitHub/EFS/result.txt')
-#get('eric', '284604.clog', 'result.txt.encrypted.fh')
+#get('eric', '284604.flog', 'result.txt.encrypted.fh')

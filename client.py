@@ -82,6 +82,7 @@ class Client():
     def register(self, username, password):
         if self.username == None:
             if self.s.register(username, password) == 'ok':
+                generate_key_set(username)
                 print("registration success")
             else:
                 print("username taken")
@@ -142,6 +143,11 @@ class Client():
                 print("permission denied")
         except:
             print("get file failed")
+
+    def share_file(self, other_user, filename, flog_on_server):
+        flog = get_filename_from_filepath(filename) + '.flog'
+        self.xfer(os.path.abspath(flog), dst + flog)
+        
 
     def rm(self, filename):
         try:
@@ -604,6 +610,7 @@ def share_directory(other_username, dlog):
         pickle.dump(sig, outfile, -1)    
 
 
+
 def read_encrypted_logs(username, filelogs):
     names = []
     my_key = RSA.importKey(open(username + '.pri').read())
@@ -742,6 +749,39 @@ def store_log(owner_username, fek, file_dsa_key, timestamp, filename, encrypted_
     with open(out_filepath, 'a+b') as outfile:
         pickle.dump(sig, outfile, -1)
 
+
+def create_directory_writelog(owner, filename, num_files, dsk):
+    log = {'num_files': 0, 'files':[]}
+    with open(filename + '.dwlog', 'rb') as input:
+        pickle.dump(log, input, -1)
+    length = len(log)
+    with open(filename + '.dwlog', 'rb') as outfile:
+        picklelog = outfile.read(length)
+    file_log_hash = SHA256.new()
+    file_log_hash.update(picklelog)
+    sig = dsk.sign(file_log_hash.digest(), k)
+    with open(filename + '.dwlog', 'a+b') as outfile:
+        pickle.dump(sig, outfile, -1)
+
+def update_directory_writelog(filename, file, dsk):
+    with open(filename , 'rb') as input:
+        log = pickle.load(filename)
+        sig = pickle.load(filename)
+    files = log['files']
+    files.append(file)
+    log['files'] = files
+    
+    with open(filename, 'rb') as input:
+        pickle.dump(log, input, -1)
+    length = len(log)
+    with open(filename, 'rb') as outfile:
+        picklelog = outfile.read(length)
+    file_log_hash = SHA256.new()
+    file_log_hash.update(picklelog)
+    sig = dsk.sign(file_log_hash.digest(), k)
+    with open(filename, 'a+b') as outfile:
+        pickle.dump(sig, outfile, -1)
+        
 def store_directory_log(owner_username, fek, file_dsa_key, timestamp, filename, encrypted_name):
     """ Stores information about the file on the sever-side. Facilitates downloading of 
         associated data file. 
@@ -768,14 +808,15 @@ def store_directory_log(owner_username, fek, file_dsa_key, timestamp, filename, 
     hashfunc = SHA256.new()
     cipher = PKCS1_OAEP.new(owner_mek, hashfunc)
     owner_block.encrypt_permission_block(cipher)
-    
+    create_directory_writelog(owner, encrypted_name, num_files, file_dsa_key)
 
     file_log_hash = SHA256.new()
     with open(owner_username + '.dsa', 'rb') as input:
         owner_msk = pickle.load(input)
     k = random.StrongRandom().randint(1,owner_msk.q-1)
     
-    log = {'owner':owner_username, owner_username: owner_block, 'timestamp':timestamp, 'encrypted_name': encrypted_name, 'file_dsa_public': file_dsa_key.publickey()}
+    log = {'owner':owner_username, owner_username: owner_block, 'timestamp':timestamp, 'encrypted_name': encrypted_name, 'file_dsa_public': file_dsa_key.publickey(),
+           'users' = []}
 
     with open(out_filepath, 'wb') as outfile:
         pickle.dump(log, outfile, -1)

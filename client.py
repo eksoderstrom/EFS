@@ -180,6 +180,12 @@ class Client():
     """
 
     def mkdir(self, path):
+        encrypted_name = create_directory(self.username, path)
+        response = s.mkdir(self.username, self.password, self.wd + '/' + encrypted_name)
+        if response == True:
+            print('successfully created directory ' + path)
+            names[encrypted_name] = path
+"""
         if path[0] == '/':
             p = re.split('/',path)
             if p[1] == self.username:
@@ -192,6 +198,7 @@ class Client():
                 s.mkdir(self.username, self.password, self.wd + path)
             else:
                 print('you don\'t have permission to access that directory')
+"""
 
     def create(self, source, dst):
         enc_file = create_file(self.username, source)
@@ -397,7 +404,6 @@ def create_file(owner, filename):
 
 def create_directory(owner, filename):
     """ This method creates a file on the server.
-        
     """
     fek = generate_aes_key()
     fsk_dsa_key = generate_dsa_key(1024)

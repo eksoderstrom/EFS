@@ -56,11 +56,11 @@ class AccessBlock():
 
     def encrypt_permission_block(self, user_encryption_cipher):
         self.file_aes_key = user_encryption_cipher.encrypt(self.file_aes_key)
-        if not self.file_dsa_key:
+        if self.file_dsa_key:
             self.file_dsa_key = user_encryption_cipher.encrypt(self.file_dsa_key)
 
     def decrypt_permission_block(self, user_encryption_cipher):
         self.file_aes_key = user_encryption_cipher.decrypt(self.file_aes_key)
-        if not self.file_dsa_key:
+        if self.file_dsa_key:
             self.file_dsa_key = user_encryption_cipher.decrypt(self.file_dsa_key)
 

@@ -30,6 +30,13 @@ RSA_KEY_SIZE = 2048
 FILE_HEADER_NONCE_SIZE = 32
 
 
+names = {}
+def translate(name):
+    if name in names:
+        return names[name] 
+    else:
+        return name
+
 class Client():
     def __init__(self):
         self.s = xmlrpc.client.ServerProxy('https://localhost:443')
@@ -85,7 +92,8 @@ class Client():
         if path=='None':
             path = self.wd
         try:
-            print(s.ls(self.username, self.password, path))
+            for n in s.ls(self.username, self.password, path):
+                print(translate(n))
         except:
             print('no such file or directory')
 
@@ -156,10 +164,6 @@ class Client():
                 print("insufficient file privileges")
         except:
             print("File upload failed")
-
-    """
-    cryptographic functions
-    """
 
 
     """
@@ -427,6 +431,9 @@ def create_file(owner, filename):
     
     #RPC Call here
     encrypted_name = generate_mac_for_filename(fek, get_filename_from_filepath(new_filename))
+    #set name translation
+    names[encrypted_name] = os.path.basename(filename)
+    names[encrypted_name + '.clog'] = os.path.basename(filename)
     
     add_file_header(filename, fek, fsk_dsa_key)
     encrypt_file(new_filename, fek, encrypted_name)
@@ -724,7 +731,6 @@ def encrypt_file(in_filepath, key, out_filepath=None, chunksize=64*1024):
 
                 outfile.write(encryptor.encrypt(chunk))
 
-#Taken from http://eli.thegreenplace.net/2010/06/25/aes-encryption-of-files-in-python-with-pycrypto/
 def decrypt_file(in_filepath, key, out_filepath=None, chunksize=64*1024):
     """ Decrypts a file using AES (CBC mode) with the
         given key. Parameters are similar to encrypt_file,

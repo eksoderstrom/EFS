@@ -18,6 +18,7 @@ from client_classes import FileHeader
 from client_classes import AccessBlock
 #regex import
 import re
+import urllib.parse
 
 import datetime
 INSUFFICIENT_PRIVILEGE_EXCEPTION = -2
@@ -436,6 +437,14 @@ def verify_log_signature(sig, owner_dsa_key, log):
 # and retrieving files and directories
 ########################################################
 
+def generate_key_set(username):
+    rsa = generate_rsa_key(2048)
+    dsa = generate_dsa_key(1024)
+    export_rsa_public_key(username + '.pub', rsa)
+    export_rsa_key_pair(username + '.pri', rsa)
+    export_dsa(username, dsa)
+    export_dsa_public(username, dsa)
+
 def create_file(owner, filename):
     """ This method creates a file on the server.
         
@@ -530,8 +539,9 @@ def share_file(other_username, write, filelog):
 
     userList = log['users']
     userList.append(other_username)
-    owner_block = log[owner]
     owner = log['owner']
+    owner_block = log[owner]
+    
     key = RSA.importKey(open(owner + '.pri').read())
     cipher = PKCS1_OAEP.new(key, SHA256.new())
     owner_block.decrypt_permission_block(cipher)
@@ -593,15 +603,35 @@ def share_directory(other_username, dlog):
     with open(filelog, 'a+b') as outfile:
         pickle.dump(sig, outfile, -1)    
 
-def send_dir_to_server(username, directory, key, s, db):
-    pass
 
-def retrieve_dir_from_server(log_filepath, s, db):
-    pass
+def read_encrypted_logs(username, filelogs):
+    names = []
+    my_key = RSA.importKey(open(username + '.pri').read())
+    cipher = PKCS1_OAEP.new(my_key, SHA256.new())
 
-def delete_file():
-    pass
+    for log in filelogs:
+        file_log_hash = SHA256.new()
+        with open(log, 'rb') as input:
+            dictlog = pickle.load(input)
+            sig = pickle.load(input)
+        owner = dictlog['owner']
+        with open(owner + '.dsapub', 'rb') as input:
+            owner_msk = pickle.load(input)
+        length = len(dictlog)
+        with open(log, 'rb') as outfile:
+            picklelog = outfile.read(length)
+        file_log_hash.update(picklelog)
 
+        if not owner_msk.verify(file_log_hash.digest(), sig):
+            print('invalid file')
+
+        if username in dictlog:
+            block = dictlog[username]
+            block.decrypt_permission_block(cipher)
+            name = decrypt_filename(block.get_file_encryption_key(), log[0:-5])
+            names.append(name)
+              
+    return names
 def rename_file(username, old_filename, new_filename):
     filelog = oldfilename + '.flog'
     with open(filelog, 'rb') as input:
@@ -699,7 +729,8 @@ def store_log(owner_username, fek, file_dsa_key, timestamp, filename, encrypted_
         owner_msk = pickle.load(input)
     k = random.StrongRandom().randint(1,owner_msk.q-1)
     
-    log = {'owner':owner_username, owner_username: owner_block, 'timestamp':timestamp, 'encrypted_name': encrypted_name, 'file_dsa_public': file_dsa_key.publickey()}
+    log = {'owner':owner_username, owner_username: owner_block, 'timestamp':timestamp, 'encrypted_name': encrypted_name, 'file_dsa_public': file_dsa_key.publickey(),
+           'users': []}
 
     with open(out_filepath, 'wb') as outfile:
         pickle.dump(log, outfile, -1)

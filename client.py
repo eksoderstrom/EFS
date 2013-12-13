@@ -364,35 +364,16 @@ def save_key_pair(filepath, rsa_key):
 # not been modified by somebody malicious
 #####################################################
 
-def verify_mac(file_header, file_log, decrypted_file):
-    """ Given a file header, we use the file
-        log to verify that no one (who has not been
-        given permission) has modified the file.
-        We accomplish this by comparing the mac value
-        in the file header against the new mac value
-        we calculate from the contents of the decrypted
-        file.
-
-        Return true: file has not been tampered with
-    """
-    old_mac = file_header.get_mac()
-    key = file_log.get_key()
-    new_mac = generate_mac(key, decrypted_file)
-
-    return old_mac == new_mac
-def verify_generation_count(file_header, file_log):
-    """ Given a file header, we use the file log to
-        check if the file we obtained from the file
-        server is at least as recent as when it was
-        uploaded with this file log. This means that
-        the generation count in the file header must
-        be equal to or greater than the generation
-        count in the file log.
-    """
-    new_gen_count = file_header.get_gen_count()
-    old_gen_count = file_log.get_gen_count()
-
-    return old_gen_count <= new_gen_count
+def verify_file_signature(sig, file_dsa_key, filepath):
+    filehash = SHA256.new()
+    chunksize=64*1024
+    with open(filepath, 'rb') as infile:
+        while True:
+            chunk = infile.read(chunksize)
+            if len(chunk) == 0:
+                break
+            filehash.update(chunk)
+    return file_dsa_key.verify(filehash.digest(), sig)
 
 ########################################################
 # These methods help with encrypting, decrypting, sending
@@ -422,21 +403,41 @@ def create_file(owner, filename):
     print("encrypted: " + encrypted_name)
     return encrypted_name
 
-def retrieve_file_from_server(username, encrypted_filename):
-    in_filepath = encrypted_filename + '.flog'
+def get(username, encrypted_filename):
+    in_filepath = encrypted_filename + '.clog'
     with open(in_filepath, 'rb') as input:
-        dict = pickle.load(input)
-    block = dict[username]
-    
+        log = pickle.load(input)
+        log_sig = pickle.load(input)
+    with open(in_filepath, 'rb') as input:
+        filehash = input.read(len(log))
+    block = log[username]
+    with open('eric.dsa', 'rb') as input:
+        owner_dsa_key = pickle.load(input)
+    #
+    file_dsa_key = log['file_dsa_public']
+
+    h = SHA256.new()
+    h.update(filehash)
+    verify_sig =  owner_dsa_key.verify(h.digest(), log_sig)
+
     key = RSA.importKey(open(username + '.pri').read())
     cipher = PKCS1_OAEP.new(key, SHA256.new())
+
+
+
+    
     block.decrypt_permission_block(cipher)
     decrypt_file(encrypted_filename, block.get_file_encryption_key(), encrypted_filename + '.decrypted')
     fh = read_file_header(encrypted_filename + '.decrypted')
+    file_sig = fh.get_signature()
     remove_file_header(encrypted_filename + '.decrypted')
-    print('retrieve: ' + fh.get_filename())
-    print(fh.get_signature())
+    print('get: ' + fh.get_filename())
+
+
     os.rename(encrypted_filename + '.decrypted.rfh', fh.get_filename())
+    if verify_sig and verify_file_signature(file_sig, file_dsa_key, fh.get_filename()):
+        return True
+    return False
 
 ###### This is not finished yet
 def share_file(username_to_share_with, file_log_name, read=True, write=False):
@@ -444,7 +445,7 @@ def share_file(username_to_share_with, file_log_name, read=True, write=False):
     Updates file log, by adding provided username to list of users and a
     corresponding user AccessBlock value in the log.
     """
-    file_log = file_log_name + ".flog"
+    """file_log = file_log_name + ".flog"
     with open(file_log, 'wb') as input: 
         log = pickle.load(input)
     log['users'].append(username_to_share_with)
@@ -452,6 +453,7 @@ def share_file(username_to_share_with, file_log_name, read=True, write=False):
     if read and write:
         shareBlock = AccessBlock
     log[username_to_share_with] = shareBlock
+    pass"""
     pass
 
 
@@ -477,10 +479,10 @@ def share_public_key():
 def get_public_key():
     pass
         
-def store_file_log(owner_username, file_aes_key, file_dsa_key=None, timestamp, filename, encrypted_name):
-    """ Stores information about the file on the server-side. Facilitates downloading of 
+def store_file_log(owner_username, file_aes_key, file_dsa_key, timestamp, filename, encrypted_name):
+    """ Stores information about the file on the sever-side. Facilitates downloading of 
         associated data file. 
-        owner_username:
+        username:
             username of owner
         file_aes_key: 
             aes key used to encrypt file
@@ -489,34 +491,41 @@ def store_file_log(owner_username, file_aes_key, file_dsa_key=None, timestamp, f
         filename:
             Unecrypted name of the input file
         timestamp:
-            The time when log file was last modified.                 
+            The time when log file was last modified.         
+        encrypted_name: 
+            filepath on the encrypted file server
+        
         out_filepath:
-            '<in_filepath>.flog' will always be used
+            '<in_filepath>.clog' will always be used
             unless user specifies a name.
     """
-    out_filepath = encrypted_name + '.flog'
+    out_filepath = encrypted_name + '.clog'
     owner_block = AccessBlock(file_aes_key, file_dsa_key);
-    owner_rsa_key = RSA.importKey(open(owner_username+ '.pub').read())
+    owner_mek = RSA.importKey(open(owner_username+ '.pub').read())
     hashfunc = SHA256.new()
-    cipher = PKCS1_OAEP.new(owner_rsa_key, hashfunc)
+    cipher = PKCS1_OAEP.new(owner_mek, hashfunc)
     owner_block.encrypt_permission_block(cipher)
     
 
     file_log_hash = SHA256.new()
     with open(owner_username + '.dsa', 'rb') as input:
-        owner_dsa_key = pickle.load(input)
-    k = random.StrongRandom().randint(1,owner_dsa_key.q-1)
+        owner_msk = pickle.load(input)
+    k = random.StrongRandom().randint(1,owner_msk.q-1)
     
-    log = {'owner':owner_username, owner_username: owner_block, 'users':[],'timestamp':timestamp, 'file_dsa_public': file_dsa_key.publickey()}
-    picklelog = pickle.dumps(log)
-    file_log_hash.update(picklelog)
-    sig = owner_dsa_key.sign(file_log_hash, k)
-    log['log_signature'] = sig
+    log = {'owner':owner_username, owner_username: owner_block, 'timestamp':timestamp, 'encrypted_name': encrypted_name, 'file_dsa_public': file_dsa_key.publickey()}
+
     with open(out_filepath, 'wb') as outfile:
         pickle.dump(log, outfile, -1)
+    length = len(log)
+    with open(out_filepath, 'rb') as outfile:
+        picklelog = outfile.read(length)
+    file_log_hash.update(picklelog)
+    sig = owner_msk.sign(file_log_hash.digest(), k)
+    with open(out_filepath, 'a+b') as outfile:
+        pickle.dump(sig, outfile, -1)
 
 
-def store_directory_log(owner_username, dir_aes_key, dir_dsa_key = None, timestamp, dirname, encrypted_dirname):
+def store_directory_log(owner_username, dir_aes_key, dir_dsa_key, timestamp, dirname, encrypted_dirname):
     """ Stores information about the directory on the server-side. 
     ?Facilitates downloading of associated data file. 
     owner_username:

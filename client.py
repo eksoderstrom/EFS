@@ -82,9 +82,8 @@ class Client():
     def register(self, username, password):
         if self.username == None:
             if self.s.register(username, password) == 'ok':
-                print("registration success")
-                print("generating keys for " + username)
                 generate_key_set(username)
+                print("registration success")
             else:
                 print("username taken")
         else:
@@ -177,12 +176,6 @@ class Client():
     """
 
     def mkdir(self, path):
-        encrypted_name = create_directory(self.username, path)
-        response = s.mkdir(self.username, self.password, self.wd + '/' + encrypted_name)
-        if response == True:
-            print('successfully created directory ' + path)
-            names[encrypted_name] = path
-        """
         if path[0] == '/':
             p = re.split('/',path)
             if p[1] == self.username:
@@ -195,60 +188,14 @@ class Client():
                 s.mkdir(self.username, self.password, self.wd + path)
             else:
                 print('you don\'t have permission to access that directory')
-        """
 
     def create(self, source, dst):
         enc_file = create_file(self.username, source)
         self.xfer(os.path.abspath(enc_file), dst + enc_file)
         self.xfer(os.path.abspath(enc_file + '.flog'), dst + enc_file + '.flog')
         print('file is encrypted as:' + enc_file)
-        print('adding to translation cache:')
-        print(enc_file + ' = ' + os.path.basename(source))
-        names[enc_file] = os.path.basename(source)
-        names[enc_file + '.flog'] = os.path.basename(source) + '.flog'
 
 c = Client()
-
-#########################################################
-# Shell 
-#
-#########################################################
-def set_proxy(proxy):
-    global s 
-    s = xmlrpc.client.ServerProxy(proxy)
-    print("s set to " + proxy)
-
-def rm(path):
-    try:
-        s.rm(c.username, c.password, path)
-    except xmlrpc.client.ProtocolError as err:
-        print("invalid credentials")
-
-def xfer(filename, dst):
-    key = generate_aes_key()
-    add_file_header(filename, key)
-    new_filename = filename + '.fh'
-    encrypt_file(new_filename, key)
-    with open(new_filename+".encrypted", "rb") as handle:
-        binary_data = xmlrpc.client.Binary(handle.read())
-    s.receive_file(binary_data, dst)
- 
-def get_file(path, dst):
-    arg = s.send_file_to_client(path)
-    with open(dst, 'wb') as handle:
-        handle.write(arg.data)
-    
-
-
-
-    
-
-def mv(source, dst):
-    pass
-
-def enc(fn):
-    encrypt_file(new_in_filepath)
-
     
 #########################################################
 # Key Generation Methods
@@ -312,9 +259,6 @@ def sign_with_dsa(aes_key, dsa_key, filepath):
     k = SuperRandom.StrongRandom().randint(1, dsa_key.q-1)
     sig = dsa_key.sign(filehash.digest(), k)
     return sig
-
-def verify_with_dsa(key, filehash, sig):
-    return key.verify(filehash.digest(), sig)
 def generate_rsa_key(size):
     """ Generate a fresh, new RSA key object
     where nonce is the random function and size is
@@ -323,26 +267,6 @@ def generate_rsa_key(size):
     nonce = os.urandom
     key = RSA.generate(size, nonce)
     return key
-
-def encrypt_aes_key(public_rsa_key, aes_key):
-    """ Encrypts AES key with another
-        user's public key
-
-        public_rsa_key: public key of person
-    """
-    ciphertext = public_rsa_key.encrypt(aes_key, None) #returns (ciphertext, None)
-    ciphertext = ciphertext[0]
-    return ciphertext
-
-def decrypt_aes_key(private_rsa_key, encrypted_aes_key):
-    """ Decrypts AES key with user's private
-        key
-
-        private_rsa_key: user's private rsa key
-        encrypted_aes_key: 
-    """
-    decrypted_aes_key = private_rsa_key.decrypt(message)
-    return decrypted_aes_key
 
 def generate_aes_key():
     key = generate_nonce(AES_KEY_SIZE)
@@ -408,21 +332,6 @@ def load_rsa_key(filepath, passphrase=None):
     except IOError as e:
         print (e)
 
-def save_key_pair(filepath, rsa_key):
-    """ Saves the user's public-private
-        key pair for later retrieval.
-
-        filepath: name of file where
-        keys will be stored. Two files
-        will be made with extensions
-        '.pub' and '.pri' for public
-        and private keys, respectively.
-
-        rsa_key: RSA key object
-    """
-    export_rsa_key_pair(filepath)
-    export_rsa_public_key(filepath)
-
 ####################################################
 # A set of methods used to verify that a file has
 # not been modified by somebody malicious
@@ -454,7 +363,7 @@ def verify_log_signature(sig, owner_dsa_key, log):
 def generate_key_set(username):
     rsa = generate_rsa_key(2048)
     dsa = generate_dsa_key(1024)
-    export_rsa_public_key(username, rsa)
+    export_rsa_public_key(username + '.pub', rsa)
     export_rsa_key_pair(username + '.pri', rsa)
     export_dsa(username, dsa)
     export_dsa_public(username, dsa)
@@ -547,7 +456,7 @@ def write_file(username, filelog, filename):
     add_file_header(filename, file_aes_key, file_dsa_key)
     encrypt_file(filename, file_aes_key, filelog[0:-5])
     
-def share_file(other_username, write, filelog):
+def share_file(other_username, filelog, write=False):
     with open(filelog, 'rb') as input:
         log = pickle.load(input)
 
@@ -816,7 +725,7 @@ def store_directory_log(owner_username, fek, file_dsa_key, timestamp, filename, 
     hashfunc = SHA256.new()
     cipher = PKCS1_OAEP.new(owner_mek, hashfunc)
     owner_block.encrypt_permission_block(cipher)
-    #create_directory_writelog(owner, encrypted_name, num_files, file_dsa_key)
+    create_directory_writelog(owner, encrypted_name, num_files, file_dsa_key)
 
     file_log_hash = SHA256.new()
     with open(owner_username + '.dsa', 'rb') as input:
@@ -824,7 +733,7 @@ def store_directory_log(owner_username, fek, file_dsa_key, timestamp, filename, 
     k = random.StrongRandom().randint(1,owner_msk.q-1)
     
     log = {'owner':owner_username, owner_username: owner_block, 'timestamp':timestamp, 'encrypted_name': encrypted_name, 'file_dsa_public': file_dsa_key.publickey(),
-           'users' : []}
+           'users' = []}
 
     with open(out_filepath, 'wb') as outfile:
         pickle.dump(log, outfile, -1)

@@ -82,8 +82,9 @@ class Client():
     def register(self, username, password):
         if self.username == None:
             if self.s.register(username, password) == 'ok':
-                generate_key_set(username)
                 print("registration success")
+                print("generating keys for " + username)
+                generate_key_set(username)
             else:
                 print("username taken")
         else:
@@ -178,6 +179,12 @@ class Client():
     """
 
     def mkdir(self, path):
+        encrypted_name = create_directory(self.username, path)
+        response = s.mkdir(self.username, self.password, self.wd + '/' + encrypted_name)
+        if response == True:
+            print('successfully created directory ' + path)
+            names[encrypted_name] = path
+        """
         if path[0] == '/':
             p = re.split('/',path)
             if p[1] == self.username:
@@ -190,12 +197,17 @@ class Client():
                 s.mkdir(self.username, self.password, self.wd + path)
             else:
                 print('you don\'t have permission to access that directory')
+        """
 
     def create(self, source, dst):
         enc_file = create_file(self.username, source)
         self.xfer(os.path.abspath(enc_file), dst + enc_file)
         self.xfer(os.path.abspath(enc_file + '.flog'), dst + enc_file + '.flog')
         print('file is encrypted as:' + enc_file)
+        print('adding to translation cache:')
+        print(enc_file + ' = ' + os.path.basename(source))
+        names[enc_file] = os.path.basename(source)
+        names[enc_file + '.flog'] = os.path.basename(source) + '.flog'
 
 c = Client()
 
@@ -446,7 +458,7 @@ def verify_log_signature(sig, owner_dsa_key, log):
 def generate_key_set(username):
     rsa = generate_rsa_key(2048)
     dsa = generate_dsa_key(1024)
-    export_rsa_public_key(username + '.pub', rsa)
+    export_rsa_public_key(username, rsa)
     export_rsa_key_pair(username + '.pri', rsa)
     export_dsa(username, dsa)
     export_dsa_public(username, dsa)
@@ -808,7 +820,7 @@ def store_directory_log(owner_username, fek, file_dsa_key, timestamp, filename, 
     hashfunc = SHA256.new()
     cipher = PKCS1_OAEP.new(owner_mek, hashfunc)
     owner_block.encrypt_permission_block(cipher)
-    create_directory_writelog(owner, encrypted_name, num_files, file_dsa_key)
+    #create_directory_writelog(owner, encrypted_name, num_files, file_dsa_key)
 
     file_log_hash = SHA256.new()
     with open(owner_username + '.dsa', 'rb') as input:
@@ -816,7 +828,7 @@ def store_directory_log(owner_username, fek, file_dsa_key, timestamp, filename, 
     k = random.StrongRandom().randint(1,owner_msk.q-1)
     
     log = {'owner':owner_username, owner_username: owner_block, 'timestamp':timestamp, 'encrypted_name': encrypted_name, 'file_dsa_public': file_dsa_key.publickey(),
-           'users' = []}
+           'users' : []}
 
     with open(out_filepath, 'wb') as outfile:
         pickle.dump(log, outfile, -1)

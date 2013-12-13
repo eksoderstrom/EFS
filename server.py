@@ -153,7 +153,7 @@ def executeRpcServer():
 
         def mkdir(self, username, password, path):
             try:
-                os.makedirs(ROOTDIR + "/" + username+ "/" + path)
+                os.makedirs(ROOTDIR + "/" + path)
                 return True
             except OSError as exc:
                 return False

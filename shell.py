@@ -35,7 +35,11 @@ class Shell(cmd.Cmd):
         self.c.echo(line)
 
     def do_mkdir(self, line):
-        client.mkdir(line)
+        p = line.split()
+        if len(p) != 1:
+            print("Usage: mkdir dirname")
+        else:
+            self.c.mkdir(line)
 
     def do_get(self, line):
         p = line.split()

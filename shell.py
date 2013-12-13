@@ -16,6 +16,13 @@ class Shell(cmd.Cmd):
             print("Usage: sr path recipient")
         else:
             self.c.share_read(p[0], p[1])
+
+    def do_decrypt(self, line):
+        p = line.split()
+        if len(p) != 2:
+            print("Usage: decrypt owner path")
+        else:
+            client.decrypt(self.c.username, p[0], p[1])
         
 
     def do_echo(self, line):
@@ -37,7 +44,10 @@ class Shell(cmd.Cmd):
         client.mv(p[0], p[1])
 
     def do_rm(self, line):
-        pass
+        p = line.split()
+        if len(p) != 1:
+            print("Usage: rm target")
+        self.c.rm(p[0])
 
     def do_enc(self, line):
         p = line.split()
@@ -104,10 +114,10 @@ class Shell(cmd.Cmd):
 
     def do_create(self, line):
         p = line.split()
-        if len(p) != 3:
-            print("Usage: filename souce dst")
+        if len(p) != 2:
+            print("Usage: create souce dst")
         else:
-            self.c.create(p[0], p[1], p[2])            
+            self.c.create(p[0], p[1])            
 
     """
     The following methods should be available for testing only, and should be removed for the final product.

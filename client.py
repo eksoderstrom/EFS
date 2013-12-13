@@ -103,23 +103,48 @@ class Client():
         print(self.wd)
 
 
+    def share_read(self, path, recipient):
+        try:
+            if s.share_read(self.username, self.password, path, recipient):
+                print('successfully shared read access to ' + path + ' with ' + recipient)
+            else:
+                print('failed to share')
+        except:
+            print('connection error')
+            
+
+    def get_file(self, path, dst):
+        try:
+            arg = s.send_file_to_client(self.username, self.password, path)
+            if arg:
+                with open(dst, 'wb+') as handle:
+                    handle.write(arg.data)
+                print('successfully retrieved ' + path)
+            else:
+                print("permission denied")
+        except:
+            print("get file failed")
+
+    def rm(self, filename):
+        try:
+            if s.rm(self.username, self.password, filename)==True:
+                print("filed removed")
+        except:
+            print('rm failed')
+
     """
     Private methods not exposed through the shell
     """
     def xfer(self, filename, dst):
+        print('transfering ' + filename + ' to ' + dst)
         try:
             with open(filename, "rb") as handle:
                 binary_data = xmlrpc.client.Binary(handle.read())
-<<<<<<< HEAD
             ret = s.receive_file(self.username, self.password, binary_data, dst)
             if ret == True:
                 print("Successfully uploaded file " + filename)
             if ret == INSUFFICIENT_PRIVILEGE_EXCEPTION:
                 print("insufficient file privileges")
-            
-=======
-            s.receive_file(binary_data, dst + '/' + os.path.basename(filename))
->>>>>>> 7679f2461c8b24ac856cfbc587c4910698e68c76
         except:
             print("File upload failed")
 
@@ -146,9 +171,10 @@ class Client():
             else:
                 print('you don\'t have permission to access that directory')
 
-    def create(self, filename, source, dst):
-        enc_file = create(self.username, filename)
-        self.xfer(filename, dst)
+    def create(self, source, dst):
+        enc_file = create_file(self.username, source)
+        self.xfer(os.path.abspath(enc_file), dst + enc_file)
+        self.xfer(os.path.abspath(enc_file + '.clog'), dst + enc_file + '.clog')
         print('file is encrypted as:' + enc_file)
 
 c = Client()
@@ -380,7 +406,7 @@ def verify_log_signature(sig, owner_dsa_key, log):
 # and retrieving files and directories
 ########################################################
 
-def create(owner, filename):
+def create_file(owner, filename):
     """ This method creates a file on the server.
         
     """
@@ -403,7 +429,7 @@ def create(owner, filename):
     print("encrypted: " + encrypted_name)
     return encrypted_name
 
-def get(username, owner, filename):
+def decrypt(username, owner, filename):
     in_filepath = filename + '.clog'
     with open(in_filepath, 'rb') as input:
         log = pickle.load(input)

@@ -98,15 +98,25 @@ def executeRpcServer():
 
         def send_file_to_client(self, username, password, path):
             if auth.authenticate(username, password):
-                if auth.has_read(username, path):
+                if auth.has_read(username, ROOTDIR + '/' + path):
                     with open(ROOTDIR + path, "rb") as handle:
                         return xmlrpc.client.Binary(handle.read())
                 else:
                     return False
 
+        def rm(self, username, password, filename):
+            if auth.authenticate(username, password):
+                print('authenticated')
+                path = os.path.abspath(ROOTDIR + '/' + filename)
+                if auth.isOwner(username, path):
+                    os.remove(path)
+                    return True
+            return False
+
+
         def share_read(self, username, password, path, recipient):
             if auth.authenticate(username, password):
-                if auth.isOwner(username, path):
+                if auth.isOwner(username, ROOTDIR + '/' + path):
                     auth.add_read(recipient, path)
                     return True
                 return False
@@ -115,17 +125,13 @@ def executeRpcServer():
         def register(self, username, password):
             if auth.register(username, password):
                 try:
-                    os.makedirs(ROOTDIR + "/" + username+ "/")
-                    auth.add_file(ROOTDIR + '/' + username + '/', username)
+                    os.makedirs(os.path.abspath(ROOTDIR + "/" + username+ "/"))
+                    auth.add_file(os.path.abspath(ROOTDIR + '/' + username + '/'), username)
                 except OSError as exc:
                     return False
                 return 'ok'
             else:
                 return 'fail'
-
-            if username in userPassDict:
-                return "fail"
-
 
         """
         private methods not exposed through the shell
@@ -135,8 +141,6 @@ def executeRpcServer():
         """
         unimplemented functions
         """
-        def rm(self, path):
-            pass
 
         def mkdir(self, username, password, path):
             try:

@@ -25,6 +25,7 @@ def login(username, password):
         return None
 
 def register(username, password):
+    print('registering ' + username + ' ' + password)
     db = db_setup()
     user = db.query(User).get(username)
     salt = str(binascii.hexlify(os.urandom(16)))
@@ -89,9 +90,6 @@ def has_write(username, path):
     abspath = os.path.abspath(path)
     user = db.query(User).get(username)
     fil = db.query(File).get(abspath)
-    print('user = ' + username)
-    print('path = ' + abspath)
-    print(fil.owner) 
     if user and fil:
         if fil.owner == username:
             return True
@@ -104,6 +102,9 @@ def has_read(username, path):
     abspath = os.path.abspath(path)
     user = db.query(User).get(username)
     fil = db.query(File).get(abspath)
+    print('user = ' + username)
+    print('path = ' + abspath)
+    print(fil.owner) 
     if user and fil:
         if fil.owner == username:
             return True

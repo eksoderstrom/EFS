@@ -114,7 +114,11 @@ class Client():
 
 
     def share_read(self, path, recipient):
-        share_file(recipient, False, filelog)
+        self.get_file(path + '.flog', '/tmp/')
+        tmppath = '/tmp/' + os.path.basename(path) + '.flog'
+        print('temporary metadata stored in /tmp')
+        share_file(recipient, tmppath)
+        self.xfer(tmppath, path + '.flog')
         if s.share_read(self.username, self.password, path, recipient):
             print('successfully shared read access to ' + path + ' with ' + recipient)
         else:
@@ -733,7 +737,7 @@ def store_directory_log(owner_username, fek, file_dsa_key, timestamp, filename, 
     k = random.StrongRandom().randint(1,owner_msk.q-1)
     
     log = {'owner':owner_username, owner_username: owner_block, 'timestamp':timestamp, 'encrypted_name': encrypted_name, 'file_dsa_public': file_dsa_key.publickey(),
-           'users' = []}
+           'users' : []}
 
     with open(out_filepath, 'wb') as outfile:
         pickle.dump(log, outfile, -1)

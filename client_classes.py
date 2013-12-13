@@ -11,10 +11,9 @@ class FileHeader():
         """ The parameters stored in the file header
             are used for security and identification
             purposes.
-
             nonce: random number in bytes
             mac: used to verify the file
-            filename:
+            filename: plaintext filename
         """
         self.filename = filename
         self.signature = signature
@@ -55,13 +54,13 @@ class AccessBlock():
     def set_file_signature_key(self, file_dsa_key):
         self.file_dsa_key = file_dsa_key
 
-    def encrypt_permission_block(self, mek_cipher):
-        self.file_aes_key = mek_cipher.encrypt(self.file_aes_key)
+    def encrypt_permission_block(self, user_encryption_cipher):
+        self.file_aes_key = user_encryption_cipher.encrypt(self.file_aes_key)
         if not self.file_dsa_key:
-            self.file_dsa_key = mek_cipher.encrypt(self.file_dsa_key)
+            self.file_dsa_key = user_encryption_cipher.encrypt(self.file_dsa_key)
 
-    def decrypt_permission_block(self, mek_cipher):
-        self.file_aes_key = mek_cipher.decrypt(self.file_aes_key)
+    def decrypt_permission_block(self, user_encryption_cipher):
+        self.file_aes_key = user_encryption_cipher.decrypt(self.file_aes_key)
         if not self.file_dsa_key:
-            self.file_dsa_key = mek_cipher.decrypt(self.file_dsa_key)
+            self.file_dsa_key = user_encryption_cipher.decrypt(self.file_dsa_key)
 
